@@ -37,7 +37,8 @@
   (lambda (env)
     (eopl:error 'apply-env "Bad environment: ~s" env)))
 
-
+;Syntax data types
+;BNFでの文法
 (define-datatype program program? 
   (a-program
     (exp1 expression?)))
@@ -65,12 +66,14 @@
   (lambda (expected val)
     (eopl:error 'expval-extractor "Expected a ~s, got ~s" expected val)))
 
+;Expressed values
 (define-datatype expval expval? 
     (num-val
       (num number?))
     (bool-val
       (bool boolean?)))
 
+;interface
 ;expval->num : ExpVal → Int 
 (define expval->num
     (lambda (val)
@@ -138,3 +141,46 @@
           (value-of body
             (extend-env var val1 env)))))))
 
+(define scan&parse
+  (sllgen:make-string-parser scanner-spec-let grammar-let))
+
+ (define scanner-spec-let
+      '((whitespace (whitespace) skip) ; Skip the whitespace
+        ; Any arbitrary string of characters following a "%" upto a newline are skipped.
+        (comment ("%" (arbno (not #\newline))) skip)
+        ; An identifier is a letter followed by an arbitrary number of contiguous digits,
+        ; letters, or specified punctuation characters.
+        (identifier
+         (letter (arbno (or letter digit "_" "-" "?")))
+         symbol)
+        ; A number is any digit followed by an arbitrary number of digits
+        ; or a "-" followed by a digit and an arbitrary number of digits.
+        (number (digit (arbno digit)) number)
+        (number ("-" digit (arbno digit)) number)))
+
+(define grammar-let
+    '((program (expression) a-program)
+      
+      (expression (number) const-exp)
+      (expression (identifier) var-exp)
+      
+      ; zero?-exp : zero?(a)
+      (expression
+       ("zero?" "(" expression ")")
+       zero?-exp)
+      
+      ; diff-exp : -(a,b) -> (- a b)
+      (expression
+       ("-" "(" expression "," expression ")")
+       diff-exp)
+      
+      ; if-exp : if a then b else c
+      (expression
+       ("if" expression "then" expression "else" expression)
+       if-exp)
+      
+
+      ; let-exp : let y = a in b
+      (expression
+       ("let" identifier "=" expression "in" expression)
+       let-exp)))
