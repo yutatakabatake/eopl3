@@ -55,8 +55,8 @@
 (define scan&parse
   (sllgen:make-string-parser scanner-spec-a grammar-a1))
 
-; (define read-eval-print
-;   (sllgen:make-rep-loop "--> " value-of--program
-;     sllgen:make-stream-parser scanner-spec-a grammar-a1))
+(define read-eval-print
+  (sllgen:make-rep-loop "--> " "{x := foo; while x do x := (x - bar)}"
+    (sllgen:make-stream-parser scanner-spec-a grammar-a1)))
 
 ;(scan&parse "{x := foo; while x do x := (x - bar)}")
