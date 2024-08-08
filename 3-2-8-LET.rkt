@@ -5,29 +5,23 @@
 
 ;empty-env : () → Env
 (define empty-env
-  (lambda () 
-    (list 'empty-env)))
+    (lambda ()
+      (lambda (search-var)
+        (report-no-binding-found search-var))))
 
 
 ;extend-env : Var × SchemeVal × Env → Env
 (define extend-env
-  (lambda (var val env)
-    (list 'extend-env var val env)))
+  (lambda (saved-var saved-val saved-env)
+    (lambda (search-var)
+      (if (eqv? search-var saved-var) 
+        saved-val
+        (apply-env saved-env search-var)))))
 
-;apply-env : Env × Var → SchemeVal 
+;apply-env : Env × Var → SchemeVal
 (define apply-env
-  (lambda (env search-var)
-    (cond
-      ((eqv? (car env) 'empty-env) (report-no-binding-found search-var))
-      ((eqv? (car env) 'extend-env)
-       (let ((saved-var (cadr env))
-             (saved-val (caddr env))
-             (saved-env (cadddr env)))
-         (if (eqv? search-var saved-var)
-             saved-val
-             (apply-env saved-env search-var))))
-      (else
-       (report-invalid-env env)))))
+    (lambda (env search-var)
+      (env search-var)))
 
 (define report-no-binding-found
   (lambda (search-var)
@@ -184,3 +178,8 @@
       (expression
        ("let" identifier "=" expression "in" expression)
        let-exp)))
+
+;(apply-env (init-env) 'i)
+;(apply-env (init-env) 'v)
+;(apply-env (init-env) 'x)
+;(extend-env 'a 100 init-env)
