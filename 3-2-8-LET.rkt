@@ -39,27 +39,27 @@
 
 
 (define-datatype program program? 
-    (a-program
-      (exp1 expression?)))
+  (a-program
+    (exp1 expression?)))
 
 (define-datatype expression expression? 
-    (const-exp
-      (num number?))
-    (diff-exp
-      (exp1 expression?)
-      (exp2 expression?))
-    (zero?-exp
-      (exp1 expression?))
-    (if-exp
-      (exp1 expression?)
-      (exp2 expression?)
-      (exp3 expression?))
-    (var-exp
-      (var string?))
-    (let-exp
-      (var string?)
-      (exp1 expression?)
-      (body expression?)))
+  (const-exp
+    (num number?))
+  (diff-exp
+    (exp1 expression?)
+    (exp2 expression?))
+  (zero?-exp
+    (exp1 expression?))
+  (if-exp
+    (exp1 expression?)
+    (exp2 expression?)
+    (exp3 expression?))
+  (var-exp
+    (var string?))
+  (let-exp
+    (var string?)
+    (exp1 expression?)
+    (body expression?)))
 
 (define report-expval-extractor-error
   (lambda (expected val)
@@ -124,16 +124,17 @@
             (- num1 num2)))))
       (zero?-exp (exp1)
         (let ((val1 (value-of exp1 env)))
-          (let ((num1 (expval->num vall)))
+          (let ((num1 (expval->num val1)))
             (if (zero? num1)
               (bool-val #t)
               (bool-val #f)))))
       (if-exp (exp1 exp2 exp3)
-        (let ((call (value-of exp1 env)))
-          (if (expval->bool vall)
+        (let ((val1 (value-of exp1 env)))
+          (if (expval->bool val1)
             (value-of exp2 env)
             (value-of exp3 env))))
       (let-exp (var exp1 body)
-        (let ((vall (value-of exp1 env)))
+        (let ((val1 (value-of exp1 env)))
           (value-of body
-            (extend-env var vall env)))))))
+            (extend-env var val1 env)))))))
+
