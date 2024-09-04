@@ -1,11 +1,11 @@
-#lang eopl 
+#lang eopl
 
 ;Env = (empty-env) | (extend-env Var SchemeVal Env)
 ;Var = Sym
 
 ;empty-env : () → Env
 (define empty-env
-  (lambda () 
+  (lambda ()
     (list 'empty-env)))
 
 
@@ -14,7 +14,7 @@
   (lambda (var val env)
     (list 'extend-env var val env)))
 
-;apply-env : Env × Var → SchemeVal 
+;apply-env : Env × Var → SchemeVal
 (define apply-env
   (lambda (env search-var)
     (cond

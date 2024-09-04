@@ -4,8 +4,8 @@
 
 ;zero,is-zero?, successor, and predecessor
 
-(define one 
-  (lambda () 
+(define one
+  (lambda ()
     '(one)))
 
 (define diff
@@ -29,5 +29,5 @@
 ;         ())
 ;         )))
 
-(define dtree1 
+(define dtree1
   (diff (one) (zero)))

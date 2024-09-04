@@ -6,13 +6,13 @@
 
 (define-datatype lc-exp lc-exp?
   (var-exp
-      (var symbol?))
-    (lambda-exp
-      (bound-var symbol?)
-      (body lc-exp?))
-    (app-exp
-      (rator lc-exp?)
-      (rand lc-exp?)))
+   (var symbol?))
+  (lambda-exp
+   (bound-var symbol?)
+   (body lc-exp?))
+  (app-exp
+   (rator lc-exp?)
+   (rand lc-exp?)))
 
 
 ; パターンマッチをしてる　lambda-expならbound-varとbodyを取り出す　extractorをしてる
@@ -20,44 +20,44 @@
 (define occurs-free?
   (lambda (search-var exp)
     (cases lc-exp exp
-      (var-exp (var) 
-        (eqv? var search-var))
+      (var-exp (var)
+               (eqv? var search-var))
       (lambda-exp (bound-var body)
-        (and
-          (not (eqv? search-var bound-var))
-          (occurs-free? search-var body)))
+                  (and
+                   (not (eqv? search-var bound-var))
+                   (occurs-free? search-var body)))
       (app-exp (rator rand)
-        (or
-          (occurs-free? search-var rator)
-          (occurs-free? search-var rand))))))
+               (or
+                (occurs-free? search-var rator)
+                (occurs-free? search-var rand))))))
 
 
 (define-datatype s-list s-list?
   (empty-s-list)
   (non-empty-s-list
-    (first s-exp?)
-    (rest s-list?)))
+   (first s-exp?)
+   (rest s-list?)))
 
 (define-datatype s-exp s-exp?
   (symbol-s-exp
-    (sym symbol?))
+   (sym symbol?))
   (s-list-s-exp
-    (slst s-list?)))
+   (slst s-list?)))
 
 ;parse-expression : SchemeVal → LcExp
 (define parse-expression
-    (lambda (datum)
-      (cond
-        ((symbol? datum) (var-exp datum)) 
-        ((pair? datum)
-          (if (eqv? (car datum) 'lambda)
-            (lambda-exp
-              (car (cadr datum))
-                (parse-expression (caddr datum)))
-              (app-exp
-                (parse-expression (car datum))
-                (parse-expression (cadr datum)))))
-          (else (report-invalid-concrete-syntax datum)))))
+  (lambda (datum)
+    (cond
+      ((symbol? datum) (var-exp datum))
+      ((pair? datum)
+       (if (eqv? (car datum) 'lambda)
+           (lambda-exp
+            (car (cadr datum))
+            (parse-expression (caddr datum)))
+           (app-exp
+            (parse-expression (car datum))
+            (parse-expression (cadr datum)))))
+      (else (report-invalid-concrete-syntax datum)))))
 
 (define lambda1 (parse-expression 'x))
 (define lambda2 (parse-expression '(lambda (x) (+ x 1))))

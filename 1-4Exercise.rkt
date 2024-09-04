@@ -34,7 +34,7 @@
        (cons (swapper s1 s2 (car lst)) (swapper s1 s2 (cdr lst))))
       (else
        (cons (car lst) (swapper s1 s2 (cdr lst)))))))
-      
+
 
 (define list-set
   (lambda (lst n x)
@@ -54,12 +54,12 @@
     (cond
       ((null? slist)
        n)
-       ((eqv? s (car slist))
-        (count-help s (cdr slist) (+ n 1)))
-       ((list? (car slist))
-        (+ (count-help s (car slist) n) (count-help s (cdr slist) n))) 
-       (else
-        (count-help s (cdr slist) n)))))
+      ((eqv? s (car slist))
+       (count-help s (cdr slist) (+ n 1)))
+      ((list? (car slist))
+       (+ (count-help s (car slist) n) (count-help s (cdr slist) n)))
+      (else
+       (count-help s (cdr slist) n)))))
 
 ;concatenate the elements of the lst1 from the top and join the lst2 behind it
 (define conc
@@ -91,7 +91,7 @@
         (if (list? (car lst))
             (conc (car lst) (up (cdr lst)))
             (cons (car lst) (up (cdr lst)))))))
-    
+
 
 (define filter-in
   (lambda (pred lst)
@@ -152,12 +152,12 @@
 (define insert
   (lambda (i loi)
     (if (null? loi)
-       (list i)
-       (cond
-         ((<= i (car loi))
-          (cons i loi))
-         ((> i (car loi))
-          (cons (car loi) (insert i (cdr loi))))))))
+        (list i)
+        (cond
+          ((<= i (car loi))
+           (cons i loi))
+          ((> i (car loi))
+           (cons (car loi) (insert i (cdr loi))))))))
 
 (define merge
   (lambda (loi1 loi2)
@@ -265,7 +265,7 @@
            (path-help n (rson bst) (conc ans (list 'right))))
           ((< n (contents-of bst))
            (path-help n (lson bst) (conc ans (list 'left))))))))
-            
+
 
 (define number-leaves
   (lambda (bintree)
@@ -298,7 +298,7 @@
         '()
         (g (list 0 (car lst)) (number-elements (cdr lst))))))
 
-    ;(number-elements-from lst 0)))
+;(number-elements-from lst 0)))
 
 (define number-elements-from
   (lambda (lst n)
@@ -334,8 +334,8 @@
 ;        0-list
 ;        (let ((obj (car lst)))
 ;          (let ((obj-n (car obj)))
-            
-        
+
+
 
 ;; (number-elements lst)
 (define lst '(a b c d e f g h i))

@@ -4,9 +4,9 @@
 
 ;empty-stack : () -> Stack
 (define empty-stack
-    (lambda ()
-        (lambda (top-var)
-            (report-no-binding-found top-var))))
+  (lambda ()
+    (lambda (top-var)
+      (report-no-binding-found top-var))))
 
 
 (define report-no-binding-found
@@ -47,7 +47,7 @@
 ;   (lambda (stack)
 ;     (stack 'empty?)))
 
-; (display 
+; (display
 ;  (and (equal? (empty-stack? (empty-stack)) #t)
 ;      (equal? (empty-stack? (push 1 (empty-stack))) #f)
 ;      (equal? (top (push 1 (empty-stack))) 1)

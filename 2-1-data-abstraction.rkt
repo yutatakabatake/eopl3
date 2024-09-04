@@ -7,7 +7,7 @@
 (define is-zero? (lambda (n) (null? n)))
 
 (define successor
- (lambda (lst)
+  (lambda (lst)
     (cond
       ((null? lst)
        '(1))
@@ -47,7 +47,7 @@
        num1)
       (else
        (successor (plus num1 (predecessor num2)))))))
-      
+
 ;掛け算
 (define mult
   (lambda (num1 num2)
