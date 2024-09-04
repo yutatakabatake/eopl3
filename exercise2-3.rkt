@@ -12,13 +12,18 @@
   (lambda (n1 n2)
     (list 'diff n1 n2)))
 
+(define tag-diff-tree car)
+(define left-diff-tree cadr)
+(define right-diff-tree caddr)
+
+(define is-one?
+  (lambda (n)
+    (eqv? (tag-diff-tree (one)) (tag-diff-tree n))))
+
 (define zero
   (lambda ()
     (diff (one) (one))))
 
-(define is-zero?
-  (lambda (diff-tree)
-    (equal? (zero) diff-tree)))
 
 ; (define successor
 ;   (lambda (diff-tree)
