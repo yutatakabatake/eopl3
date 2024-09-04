@@ -50,9 +50,9 @@
    (exp2 expression?)
    (exp3 expression?))
   (var-exp
-   (var string?))
+   (var symbol?))
   (let-exp
-   (var string?)
+   (var symbol?)
    (exp1 expression?)
    (body expression?)))
 
@@ -188,3 +188,4 @@
 ;(apply-env (init-env) 'v)
 ;(apply-env (init-env) 'x)
 ;(extend-env 'a 100 init-env)
+(define sp "let x = 5 in -(6,x)")
