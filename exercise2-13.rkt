@@ -18,7 +18,9 @@
         ((eqv? search-var saved-var)
          saved-val)
         ((eqv? search-var empty-env?)
-         (eqv? saved-env (empty-env)))))))
+         (eqv? saved-env (empty-env)))
+        (else
+         (apply-env saved-env search-var))))))
 
 ;apply-env : Env × Var → SchemeVal
 (define apply-env
