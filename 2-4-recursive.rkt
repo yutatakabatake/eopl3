@@ -14,6 +14,9 @@
    (rator lc-exp?)
    (rand lc-exp?)))
 
+(define exp1 (var-exp 'x))
+(define exp2 (lambda-exp 'x (app-exp (var-exp 'x) (var-exp 'y))))
+(define exp3 (app-exp (var-exp 'x) (var-exp 'y)))
 
 ; パターンマッチをしてる　lambda-expならbound-varとbodyを取り出す　extractorをしてる
 
@@ -43,6 +46,17 @@
    (sym symbol?))
   (s-list-s-exp
    (slst s-list?)))
+
+(define list-of
+  (lambda (pred)
+    (lambda (val)
+      (or (null? val)
+          (and (pair? val)
+               (pred (car val))
+               ((list-of pred) (cdr val)))))))
+
+((list-of number?) '(1 2 3 4 5))
+((list-of number?) '(1 2 3 4 5 a))
 
 ;parse-expression : SchemeVal → LcExp
 (define parse-expression
