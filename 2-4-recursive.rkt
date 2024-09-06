@@ -74,5 +74,16 @@
       (else (report-invalid-concrete-syntax datum)))))
 
 (define lambda1 (parse-expression 'x))
-(define lambda2 (parse-expression '(lambda (x) (+ x 1))))
-(define lambda3 (parse-expression '((lambda (x) (+ x 1)) n)))
+(define lambda2 (parse-expression '(lambda (x) (x y))))
+(define lambda3 (parse-expression '((lambda (x) (x y)) z)))
+
+;unparse-lc-exp : LcExp → SchemeVal
+(define unparse-lc-exp
+  (lambda (exp)
+    (cases lc-exp exp
+      (var-exp (var) var)
+      (lambda-exp (bound-var body)
+                  (list 'lambda (list bound-var)
+                        (unparse-lc-exp body)))
+      (app-exp (rator rand)
+               (list (unparse-lc-exp rator) (unparse-lc-exp rand))))))
