@@ -184,8 +184,5 @@
                         (lambda (pgm) (value-of-program pgm))
                         (sllgen:make-stream-parser scanner-spec-let grammar-let)))
 
-;(apply-env (init-env) 'i)
-;(apply-env (init-env) 'v)
-;(apply-env (init-env) 'x)
-;(extend-env 'a 100 init-env)
 (define sp "let x = 5 in -(6,x)")
+(define sp2 "let x = 33 in let y = 22 in if zero?(-(x,11)) then -(y,2) else -(y,4)")
