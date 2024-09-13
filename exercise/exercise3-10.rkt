@@ -87,8 +87,7 @@
   (null?-exp
    (exp1 expression?))
   (list-exp
-   (exp1 expression?)
-   (exp2 (list-of expression?))))
+   (exps (list-of expression?))))
 
 (define report-expval-extractor-error
   (lambda (expected val)
@@ -162,6 +161,18 @@
                 #f)
       (else
        (report-expval-extractor-error 'null? val)))))
+
+;expval->list : ExpVal → Listof(ExpVal)
+(define expval->list
+  (lambda (val)
+    (cases expval val
+      (list-val (first rest)
+                (list first rest))
+      (emptylist-val ()
+                     (emptylist-val))
+
+      (else
+       (report-expval-extractor-error 'list val)))))
 
 ;init-env : () → Env
 ;usage: (init-env) = [i=⌈1⌉,v=⌈5⌉,x=⌈10⌉]
@@ -274,10 +285,17 @@
       (null?-exp (exp1)
                  (let ((val1 (value-of exp1 env)))
                    (bool-val (expval->null? val1))))
-      (list-exp (exp1 exp2)
-                (let ((val1 (value-of exp1 env)))
-                  (list-val val1 (map value-of exp2 env))
-                  )))))
+      (list-exp (exps)
+                (if (null? exps)
+                    (emptylist-val)
+                    (let ((val1 (value-of (car exps) env))
+                          (rest (list-exp (cdr exps))))
+                      (list-val val1 (value-of rest env))))))))
+
+
+;                 (list-val (value-of (car exps) env)
+;                           (expval->list (value-of (list-exp (cdr exps)) env))))))
+; ))
 
 (define scan&parse
   (sllgen:make-string-parser scanner-spec-let grammar-let))
@@ -392,6 +410,3 @@
   (sllgen:make-rep-loop "--> "
                         (lambda (pgm) (value-of-program pgm))
                         (sllgen:make-stream-parser scanner-spec-let grammar-let)))
-
-(define sp "let x = 5 in -(6,x)")
-(define sp2 "let x = 33 in let y = 22 in if zero?(-(x,11)) then -(y,2) else -(y,4)")
