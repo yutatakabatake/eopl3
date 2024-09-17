@@ -41,8 +41,6 @@
 (define-datatype expval expval?
   (num-val
    (num number?))
-  (bool-val
-   (bool boolean?))
   (cons-val
    (first expval?)
    (rest expval?))
@@ -57,13 +55,6 @@
     (cases expval val
       (num-val (num) num)
       (else (report-expval-extractor-error 'num val)))))
-
-;expval->bool : ExpVal → Bool
-(define expval->bool
-  (lambda (val)
-    (cases expval val
-      (bool-val (bool) bool)
-      (else (report-expval-extractor-error 'bool val)))))
 
 ;同じデータ型を出力するextractorも作って良い
 ;expval->car : ExpVal → ExpVal
@@ -188,7 +179,7 @@
                          (num-val 0)))))
       (if-exp (exp1 exp2 exp3)
               (let ((val1 (value-of exp1 env)))
-                (if (not (zero? (bool->num (expval->bool val1))))
+                (if (not (zero? (expval->num val1)))
                     (value-of exp2 env)
                     (value-of exp3 env))))
       (let-exp (var exp1 body)
@@ -266,7 +257,7 @@
       (cond-exp (preds clauses)
                 (let ((pred (car preds))
                       (clause (car clauses)))
-                  (if (not (zero? bool->num (expval->bool (value-of pred env))))
+                  (if (not (zero? (expval->num (value-of pred env))))
                       (value-of clause env)
                       (value-of (cond-exp (cdr preds) (cdr clauses)) env))))
       )))
