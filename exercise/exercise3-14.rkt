@@ -366,10 +366,10 @@
      ("cdr" "(" expression ")")
      cdr-exp)
 
-    ; ; null?-exp : null?(a)
-    ; (expression
-    ;  ("null?" "(" expression ")")
-    ;  null?-exp)
+    ; null?-exp : null?(a)
+    (expression
+     ("null?" "(" expression ")")
+     null?-exp)
 
     ; list-exp : list(a,b,c,...) -> (a,b,c,...)
     (expression
