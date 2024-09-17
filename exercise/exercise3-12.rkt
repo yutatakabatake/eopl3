@@ -149,7 +149,10 @@
   (null?-exp
    (exp1 expression?))
   (list-exp
-   (exps (list-of expression?))))
+   (exps (list-of expression?)))
+  (cond-exp
+   (preds (list-of expression?))
+   (clauses (list-of expression?))))
 
 
 ;value-of-program : Program → ExpVal
@@ -249,7 +252,14 @@
       (list-exp (exps)
                 (if (null? exps)
                     (emptylist-val)
-                    (list-val (map (lambda (exp-elem) (value-of exp-elem env)) exps)))))))
+                    (list-val (map (lambda (exp-elem) (value-of exp-elem env)) exps))))
+      (cond-exp (preds clauses)
+                (let ((pred (car preds))
+                      (clause (car clauses)))
+                  (if (expval->bool (value-of pred env))
+                      (value-of clause env)
+                      (value-of (cond-exp (cdr preds) (cdr clauses)) env))))
+      )))
 
 
 (define scanner-spec-let
@@ -356,6 +366,11 @@
     (expression
      ("list" "(" (separated-list expression ",") ")" )
      list-exp)
+
+    ; cond-exp : cond (a ===> b) end
+    (expression
+     ("cond" (arbno expression "==>" expression) "end")
+     cond-exp)
     ))
 
 (define identifier?
@@ -400,3 +415,11 @@
 (define report-emptylist-error
   (lambda (val)
     (eopl:error 'emptylist "Emptylist: ~s" val)))
+
+(define test
+  "let x = 10 in
+        cond
+                less? (x,5) ==> 100
+                greater? (x,20) ==> 200
+                equal? (x,10) ==> 300
+        end")
