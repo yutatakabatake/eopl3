@@ -108,8 +108,9 @@
    (rest expval?))
   (emptylist-val)
   (list-val
-   (first expval?)
-   (rest (list-of expval?))))
+   (elems (list-of expval?))))
+
+;list-valはリストを1引数としてとる．リストの要素は全てexpval
 
 (define list-of
   (lambda (pred)
@@ -161,18 +162,6 @@
                 #f)
       (else
        (report-expval-extractor-error 'null? val)))))
-
-;expval->list : ExpVal → Listof(ExpVal)
-(define expval->list
-  (lambda (val)
-    (cases expval val
-      (list-val (first rest)
-                (list first rest))
-      (emptylist-val ()
-                     (emptylist-val))
-
-      (else
-       (report-expval-extractor-error 'list val)))))
 
 ;init-env : () → Env
 ;usage: (init-env) = [i=⌈1⌉,v=⌈5⌉,x=⌈10⌉]
@@ -288,14 +277,8 @@
       (list-exp (exps)
                 (if (null? exps)
                     (emptylist-val)
-                    (let ((val1 (value-of (car exps) env))
-                          (rest (list-exp (cdr exps))))
-                      (list-val val1 (value-of rest env))))))))
+                    (list-val (map (lambda (exp-elem) (value-of exp-elem env)) exps)))))))
 
-
-;                 (list-val (value-of (car exps) env)
-;                           (expval->list (value-of (list-exp (cdr exps)) env))))))
-; ))
 
 (define scan&parse
   (sllgen:make-string-parser scanner-spec-let grammar-let))
