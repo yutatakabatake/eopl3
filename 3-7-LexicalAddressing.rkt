@@ -32,16 +32,6 @@
                               (extend-senv 'x
                                            (empty-senv))))))
 
-(define init-nameless-env
-  (lambda ()
-    (extend-nameless-env
-     (num-val 1)			; was i
-     (extend-nameless-env
-      (num-val 5)			; was v
-      (extend-nameless-env
-       (num-val 10)			; was x
-       (empty-nameless-env))))))
-
 
 ; nameless-environment? : SchemeVal → Bool
 (define nameless-environment?
@@ -60,7 +50,21 @@
 
 ; apply-nameless-env : Nameless-env × Lexaddr → ExpVal
 (define apply-nameless-env
-  (lambda (nameless-env n) (list-ref nameless-env n)))
+  (lambda (nameless-env n)
+    (list-ref nameless-env n)))
+
+
+(define init-nameless-env
+  (lambda ()
+    ; (extend-nameless-env
+    ;  (num-val 1)			; was i
+    ;  (extend-nameless-env
+    ;   (num-val 5)			; was v
+    ;   (extend-nameless-env
+    ;    (num-val 10)			; was x
+    (empty-nameless-env)))
+;    )))
+
 
 ;Expressed values
 (define-datatype expval expval?
@@ -307,6 +311,12 @@
     (value-of-program
      (translation-of-program
       (scan&parse string)))))
+
+; translate : String → Nameless-program
+(define translate
+  (lambda (string)
+    (translation-of-program
+     (scan&parse string))))
 
 (define scan&parse
   (sllgen:make-string-parser scanner-spec-nameless grammar-nameless))
