@@ -110,8 +110,8 @@
    (var identifier?)
    (body expression?))
   (call-exp
-   (rand expression?)
-   (rator expression?))
+   (rator expression?)
+   (rand expression?))
   (letrec-exp
    (proc-name identifier?)
    (bound-var identifier?)

@@ -140,8 +140,8 @@
    (var identifier?)
    (body expression?))
   (call-exp
-   (rand expression?)
-   (rator expression?))
+   (rator expression?)
+   (rand expression?))
   (nameless-var-exp
    (num number?))
   (nameless-let-exp

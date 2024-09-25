@@ -105,8 +105,8 @@
    (p-body expression?)
    (body expression?))
   (call-exp
-   (rand expression?)
-   (rator expression?)))
+   (rator expression?)
+   (rand expression?)))
 
 ;value-of-program : Program → ExpVal
 (define value-of-program
