@@ -109,7 +109,10 @@
    (body expression?))
   (call-exp
    (rator expression?)
-   (rand (list-of expression?))))
+   (rand (list-of expression?)))
+  (mult-exp
+   (exp1 expression?)
+   (exp2 expression?)))
 
 ;value-of-program : Program → ExpVal
 (define value-of-program
@@ -154,7 +157,14 @@
       (call-exp (rator rand)
                 (let ((proc (expval->proc (value-of rator env)))
                       (arg (map (lambda (exp) (value-of exp env)) rand)))
-                  (apply-procedure proc arg))))))
+                  (apply-procedure proc arg)))
+      (mult-exp (exp1 exp2)
+                (let ((val1 (value-of exp1 env))
+                      (val2 (value-of exp2 env)))
+                  (let ((num1 (expval->num val1))
+                        (num2 (expval->num val2)))
+                    (num-val
+                     (* num1 num2))))))))
 
 (define scanner-spec-proc
   '((whitespace (whitespace) skip) ; Skip the whitespace
@@ -210,6 +220,11 @@
     (expression
      ("(" expression (arbno expression) ")")
      call-exp)
+
+    ; mult-exp : *(a,b) -> (* a b)
+    (expression
+     ("*" "(" expression "," expression ")")
+     mult-exp)
     ))
 
 (define identifier?
@@ -246,3 +261,20 @@
 (define test
   "(proc (x, y, z) -(-(x, y),z)
   200 4 36)")
+
+(define test2
+  "let makemult = proc (maker)
+                    proc (x)
+                      if zero?(x)
+                      then 0
+                      else -(((maker maker) -(x,1)), -4)
+    in let times4 = proc (x) ((makemult makemult) x) 
+      in (times4 3)")
+
+(define test3
+  "let times = 
+    proc (num, acc)
+      if zero?(num)
+      then acc
+      else (times -(num,1) *(acc, num))
+  in (times 4 0)")
