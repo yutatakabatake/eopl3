@@ -1,6 +1,8 @@
 #lang eopl
 
 ; 複数の引数をとるprocに拡張
+; ex3-23 再帰を使って階乗を計算　Yコンビネータ？　
+; ex3-24 相互に再帰するoddとeven
 
 (define-datatype environment environment?
   (empty-env)
