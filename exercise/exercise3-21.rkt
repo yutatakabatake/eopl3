@@ -3,6 +3,7 @@
 ; 複数の引数をとるprocに拡張
 ; ex3-23 再帰を使って階乗を計算　Yコンビネータ？　
 ; ex3-24 相互に再帰するoddとeven
+; ex3-25 一般化した再帰呼び出し
 
 (define-datatype environment environment?
   (empty-env)
@@ -324,3 +325,52 @@
                       else *(((maker maker) -(x,1)), x)
     in let fact = proc (x) ((makemult makemult) x)
       in (fact 5)")
+
+; even(x) = if zero?(x) then 1 else (odd -(x,1))
+; odd(x) = if zero?(x) then 0 else (even -(x,1))
+
+(define even
+  (lambda (x)
+    (if (zero? x)
+        1
+        (odd (- x 1)))))
+
+(define odd
+  (lambda (x)
+    (if (zero? x)
+        0
+        (even (- x 1)))))
+
+(define test3
+  "let even-iter = proc (o)
+                    proc (e)
+                      proc (num)
+                        if zero?(num)
+                        then 1
+                        else (((o o) e) -(num,1))
+    in let odd-iter = proc (o)
+                        proc (e)
+                          proc (num)
+                            if zero?(num)
+                            then 0
+                            else (((e o) e) -(num, 1))
+      in let odd = proc (num) (((odd-iter odd-iter) even-iter) num)
+        in let even = proc (num) (((even-iter odd-iter) even-iter) num)
+          in (even 6)")
+
+; 書き下す
+
+(define ex3-25
+  "let makerec = proc (f)
+                let d = proc (x)
+                          proc (z) 
+                            ((f (x x)) z)
+                  in proc (n) 
+                      ((f (d d)) n)
+    in let maketimes4 = proc (f) 
+                        proc (x)
+                          if zero?(x)
+                          then 0
+                          else -((f -(x,1)), -4)
+      in let times4 = (makerec maketimes4) 
+          in (times4 3)")
