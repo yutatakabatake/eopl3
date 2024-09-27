@@ -271,10 +271,54 @@
     in let times4 = proc (x) ((makemult makemult) x) 
       in (times4 3)")
 
-(define test3
-  "let times = 
-    proc (num, acc)
-      if zero?(num)
-      then acc
-      else (times -(num,1) *(acc, num))
-  in (times 4 0)")
+; (times4 3)
+; = ((makemult makemult) 3)
+; = ((proc (maker)
+;       proc (x)
+;         if zero?(x)
+;            then 0
+;           else -(((maker maker) -(x,1)), -4)   makemult) 3)
+; = (proc (x)
+;      if zero?(x)
+;      then 0
+;      else -(((makemult makemult) -(x,1)), -4)  3)
+; = if zero?(3)
+;   then 0
+;   else -(((makemult makemult) -(3,1)), -4)
+; = -(((makemult makemult) -(3,1)), -4)
+; = -(((makemult makemult) 2), -4)
+; = -(((proc (maker)
+;         proc (x)
+;           if zero?(x)
+;           then 0
+;           else -(((maker maker) -(x,1)), -4)   makemult) 2), -4)
+; = -((proc (x)
+;         if zero?(x)
+;         then 0
+;         else -(((makemult makemult) -(x,1)), -4) 2), -4)
+; = -(if zero?(2)
+;      then 0
+;      else -(((makemult makemult) -(2,1)), -4), -4)
+; = -(-(((makemult makemult) 1), -4), -4)           ← ((makemult makemult) 2) が -(((makemult makemult) 1), -4)になる
+; = -(-(-(((makemult makemult) 0), -4), -4), -4)
+; = -(-(-(0, -4), -4), -4)
+; = 12
+
+
+(define sigma
+  "let makemult = proc (maker)
+                    proc (x)
+                      if zero?(x)
+                      then 0
+                      else -(((maker maker) -(x,1)), -(0,x))
+    in let sigma = proc (x) ((makemult makemult) x)
+      in (sigma 10)")
+
+(define fact
+  "let makemult = proc (maker)
+                    proc (x)
+                      if zero?(x)
+                      then 1
+                      else *(((maker maker) -(x,1)), x)
+    in let fact = proc (x) ((makemult makemult) x)
+      in (fact 5)")
