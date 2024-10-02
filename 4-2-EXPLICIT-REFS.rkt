@@ -291,12 +291,13 @@
                         (num-val 23)))))
       )))
 
-(define (value-of-begin-exp exps env)
-  (if (null? (cdr exps))
-      (value-of (car exps) env)
-      (begin
+(define value-of-begin-exp
+  (lambda (exps env)
+    (if (null? (cdr exps))
         (value-of (car exps) env)
-        (value-of-begin-exp (cdr exps) env))))
+        (begin
+          (value-of (car exps) env)
+          (value-of-begin-exp (cdr exps) env)))))
 
 
 
