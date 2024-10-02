@@ -129,7 +129,8 @@
 (define newref
   (lambda (val)
     (let ((next-ref (length the-store)))
-      (set! the-store (append the-store (list val))) next-ref)))
+      (set! the-store (append the-store (list val)))
+      next-ref)))
 
 ; deref : Ref → ExpVal
 (define deref
@@ -138,6 +139,7 @@
 
 ; setref! : Ref × ExpVal → Unspecified
 ; usage: sets the-store to a state like the original, but with position ref containing val.
+; the-storeを更新している
 (define setref!
   (lambda (ref val)
     (set! the-store
@@ -455,4 +457,13 @@
       in begin
           setref(deref(x), 11);
           deref(deref(x))
+         end")
+
+(define mytest
+  "let x = newref(0) 
+    in let y = newref(1)
+      in begin
+          setref(x,100);
+          setref(y,200);
+          -(deref(x),deref(y))
          end")
