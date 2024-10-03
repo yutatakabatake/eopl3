@@ -70,10 +70,6 @@
   (proc-val
    (proc proc?)))
 
-(define-datatype den-val den-val?
-  (ref-val
-   (ref reference?)))
-
 (define-datatype proc proc?
   (procedure
    (var identifier?)
@@ -167,13 +163,6 @@
                        (cdr store1) (- ref1 1))))))))
             (setref-inner the-store ref)))))
 
-; テキストにない
-; denval->ref : ExpVal → Ref
-(define den-val->ref
-  (lambda (v)
-    (cases den-val v
-      (ref-val (ref) ref)
-      (else (expval-extractor-error 'reference v)))))
 
 ;Syntax data types
 ;BNFでの文法
