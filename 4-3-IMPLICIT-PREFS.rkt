@@ -4,7 +4,7 @@
   (empty-env)
   (extend-env
    (var identifier?)
-   (val any?)
+   (val reference?)
    (env environment?))
   (extend-env-rec
    (p-names (list-of identifier?))
@@ -19,7 +19,8 @@
       (empty-env ()
                  (report-no-binding-found search-var))
       (extend-env (saved-var saved-val saved-env)
-                  (if (eqv? saved-var search-var) saved-val
+                  (if (eqv? saved-var search-var)
+                      saved-val
                       (apply-env saved-env search-var)))
       (extend-env-rec (p-names b-vars p-bodies saved-env)
                       (let ((n (location search-var p-names)))
@@ -272,8 +273,7 @@
                     (setref!
                      (apply-env env var)
                      (value-of exp1 env))
-                    (num-val 27)))
-      )))
+                    (num-val 27))))))
 
 (define value-of-begin-exp
   (lambda (exps env)
@@ -282,8 +282,6 @@
         (begin
           (value-of (car exps) env)
           (value-of-begin-exp (cdr exps) env)))))
-
-
 
 
 (define scanner-spec-implicit-refs
