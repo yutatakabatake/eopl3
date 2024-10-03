@@ -1,5 +1,7 @@
 #lang eopl
 
+; call-by-value 値渡し
+
 (define-datatype environment environment?
   (empty-env)
   (extend-env
