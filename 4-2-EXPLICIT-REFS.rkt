@@ -467,3 +467,10 @@
           setref(y,200);
           -(deref(x),deref(y))
          end")
+
+(define figure4.4
+  "let x = newref(22)
+    in let f = proc (z) 
+                let zz = newref(-(z,deref(x)))
+                  in deref(zz)
+        in -((f 66), (f 55))")
