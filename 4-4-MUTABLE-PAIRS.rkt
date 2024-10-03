@@ -500,3 +500,8 @@
                 in let d2 = setleft(glo, 99)
                     in -(left(loc),right(loc))
         in (f glo)")
+
+; d1 = (11,11)  loc = (11,11)
+; d2 = (99,22)  glo = (99,22)ではなくて　glo = (99,11) loc = (99,11)
+; -(99, 11)
+; locとgloはlocationを共有している　参照ペアが同じ
