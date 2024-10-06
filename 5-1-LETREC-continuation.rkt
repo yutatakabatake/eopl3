@@ -144,6 +144,13 @@
                  (let ((proc1 (expval->proc val1)))
                    (apply-procedure/k proc1 val cont))))))
 
+; apply-procedure/k : Proc × ExpVal × Cont → FinalAnswer
+(define apply-procedure/k
+  (lambda (proc1 val cont)
+    (cases proc proc1
+      (procedure (var body saved-env)
+                 (value-of/k body
+                             (extend-env var val saved-env) cont)))))
 
 ;Syntax data types
 ;BNFでの文法
@@ -220,13 +227,6 @@
                 (value-of/k rator env
                             (rator-cont rand env cont))))))
 
-; apply-procedure/k : Proc × ExpVal × Cont → FinalAnswer
-(define apply-procedure/k
-  (lambda (proc1 val cont)
-    (cases proc proc1
-      (procedure (var body saved-env)
-                 (value-of/k body
-                             (extend-env var val saved-env) cont)))))
 
 (define scanner-spec-cont-letrec
   '((whitespace (whitespace) skip) ; Skip the whitespace
