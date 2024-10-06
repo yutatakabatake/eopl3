@@ -150,7 +150,8 @@
     (cases proc proc1
       (procedure (var body saved-env)
                  (value-of/k body
-                             (extend-env var val saved-env) cont)))))
+                             (extend-env var val saved-env)
+                             cont)))))
 
 ;Syntax data types
 ;BNFでの文法
