@@ -154,32 +154,32 @@
 (define-datatype expression expression?
   (const-exp
    (num number?))
-  (diff-exp
-   (exp1 expression?)
-   (exp2 expression?))
+  (var-exp
+   (var identifier?))
+  (proc-exp
+   (var identifier?)
+   (body expression?))
+  (letrec-exp
+   (proc-name identifier?)
+   (bound-var identifier?)
+   (proc-body expression?)
+   (letrec-body expression?))
   (zero?-exp
    (exp1 expression?))
   (if-exp
    (exp1 expression?)
    (exp2 expression?)
    (exp3 expression?))
-  (var-exp
-   (var identifier?))
   (let-exp
    (var identifier?)
    (exp1 expression?)
    (body expression?))
-  (proc-exp
-   (var identifier?)
-   (body expression?))
+  (diff-exp
+   (exp1 expression?)
+   (exp2 expression?))
   (call-exp
    (rator expression?)
-   (rand expression?))
-  (letrec-exp
-   (proc-name identifier?)
-   (bound-var identifier?)
-   (proc-body expression?)
-   (letrec-body expression?)))
+   (rand expression?)))
 
 ;Syntax data types
 ;BNFでの文法
