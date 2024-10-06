@@ -317,3 +317,10 @@
 (define report-expval-extractor-error
   (lambda (expected val)
     (eopl:error 'expval-extractor "Expected a ~s, got ~s" expected val)))
+
+
+(define sigma
+  "letrec sigma (x) = if zero?(x) 
+                      then 0
+                      else -((sigma -(x,1)), -(0,x))
+    in (sigma 4)")
