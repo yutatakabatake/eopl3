@@ -152,33 +152,27 @@
                                (zero? (expval->num val)))))
       (let-exp-cont (var body saved-env saved-cont)
                     (value-of/k body
-                                (extend-env var val saved-env) saved-cont))
+                                (extend-env var val saved-env)
+                                saved-cont))
       (if-test-cont (exp2 exp3 saved-env saved-cont)
                     (if (expval->bool val)
                         (value-of/k exp2 saved-env saved-cont)
                         (value-of/k exp3 saved-env saved-cont)))
-
       (diff1-cont (exp2 env cont)
                   (value-of/k exp2 env (diff2-cont val cont)))
-
       (diff2-cont (val1 cont)
                   (let ((num1 (expval->num val1))
                         (num2 (expval->num val)))
                     (apply-cont cont (num-val (- num1 num2)))))
-
       (rator-cont (rand env cont)
                   (value-of/k rand env (rand-cont val cont)))
-
       (rand-cont (val1 cont)
                  (let ((proc1 (expval->proc val1)))
                    (apply-procedure/k proc1 val cont)))
-
       (try-cont (var handler-exp env cont)
                 (apply-cont cont val))
-
       (raise1-cont (cont)
                    (apply-handler val cont))
-
       (null1-cont (saved-cont)
                   (apply-cont saved-cont
                               (bool-val (null? (expval->list val)))))
@@ -199,6 +193,7 @@
                              cont)))))
 
 ; apply-handler : ExpVal × Cont → FinalAnswer
+; 作った継続を落としていって直近のtry-contを見つける
 (define apply-handler
   (lambda (val cont)
     (cases continuation cont
@@ -315,11 +310,9 @@
       (try-exp (exp1 var handler-exp)
                (value-of/k exp1 env
                            (try-cont var handler-exp env cont)))
-
       (raise-exp (exp1)
                  (value-of/k exp1 env
                              (raise1-cont cont)))
-
       (list-exp (lst)
                 (apply-cont cont
                             (list-val (map num-val lst))))
