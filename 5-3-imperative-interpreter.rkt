@@ -29,15 +29,6 @@
                           (proc-val (procedure b-var p-body env))
                           (apply-env saved-env search-var))))))
 
-(define equal-name?
-  (lambda (search-var nlist vlist blist)
-    (cond
-      ((null? nlist)
-       (list #f))
-      ((eqv? search-var (car nlist))
-       (list #t (car vlist) (car blist)))
-      (else
-       (equal-name? search-var (cdr nlist) (cdr vlist) (cdr blist))))))
 
 ;init-env : () → Env
 ;usage: (init-env) = [i=⌈1⌉,v=⌈5⌉,x=⌈10⌉]
