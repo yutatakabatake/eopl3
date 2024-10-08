@@ -179,9 +179,7 @@
       (car-cont (cont)
                 (apply-cont cont (expval->car val)))
       (cdr-cont (cont)
-                (apply-cont cont (list-val (cdr (expval->list val)))))
-
-      )))
+                (apply-cont cont (list-val (cdr (expval->list val))))))))
 
 ; apply-procedure/k : Proc × ExpVal × Cont → FinalAnswer
 (define apply-procedure/k
@@ -213,8 +211,18 @@
                  (apply-handler val saved-cont))
       (raise1-cont (saved-cont)
                    (apply-handler val saved-cont))
-      (else
-       (report-uncaught-exception)))))
+      (zero1-cont (saved-cont)
+                  (apply-handler val saved-cont))
+      (let-exp-cont (var body saved-env saved-cont)
+                    (apply-handler val saved-cont))
+      (if-test-cont (exp2 exp3 saved-env saved-cont)
+                    (apply-handler val saved-cont))
+      (null1-cont (saved-cont)
+                  (apply-handler val saved-cont))
+      (car-cont (saved-cont)
+                (apply-handler val cont))
+      (cdr-cont (saved-cont)
+                (apply-handler val cont)))))
 
 
 ;Syntax data types
