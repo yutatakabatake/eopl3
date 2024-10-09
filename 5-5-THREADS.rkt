@@ -1,6 +1,7 @@
 #lang eopl
 
 ; threadsを継続を利用して実装
+; storeを利用した値渡し
 
 (define-datatype environment environment?
   (empty-env)
@@ -212,16 +213,18 @@
   (rand-cont
    (val1 expval?)
    (cont continuation?))
-  (spawn-cont
-   (cont continuation?))
-  (end-main-thread-cont)
-  (end-subthread-cont)
   (null1-cont
    (cont continuation?))
   (car-cont
    (cont continuation?))
   (cdr-cont
    (cont continuation?))
+  (print-cont
+   (cont continuation?))
+  (spawn-cont
+   (cont continuation?))
+  (end-main-thread-cont)
+  (end-subthread-cont)
   (wait-cont
    (cont continuation?))
   (signal-cont
@@ -249,7 +252,8 @@
                                      (zero? (expval->num val)))))
             (let-exp-cont (var body saved-env saved-cont)
                           (value-of/k body
-                                      (extend-env var val saved-env) saved-cont))
+                                      (extend-env var (newref val) saved-env)
+                                      saved-cont))
             (if-test-cont (exp2 exp3 saved-env saved-cont)
                           (if (expval->bool val)
                               (value-of/k exp2 saved-env saved-cont)
@@ -265,6 +269,17 @@
             (rand-cont (val1 cont)
                        (let ((proc1 (expval->proc val1)))
                          (apply-procedure/k proc1 val cont)))
+            (null1-cont (saved-cont)
+                        (apply-cont saved-cont
+                                    (bool-val (null? (expval->list val)))))
+            (car-cont (cont)
+                      (apply-cont cont (expval->car val)))
+            (cdr-cont (cont)
+                      (apply-cont cont (list-val (cdr (expval->list val)))))
+            (print-cont (cont)
+                        (display val)
+                        (newline)
+                        (apply-cont cont (num-val 1)))  ; unspecified
             (spawn-cont (saved-cont)
                         (let ((proc1 (expval->proc val)))
                           (place-on-ready-queue!
@@ -278,13 +293,6 @@
                                   (run-next-thread))
             (end-subthread-cont ()
                                 (run-next-thread))
-            (null1-cont (saved-cont)
-                        (apply-cont saved-cont
-                                    (bool-val (null? (expval->list val)))))
-            (car-cont (cont)
-                      (apply-cont cont (expval->car val)))
-            (cdr-cont (cont)
-                      (apply-cont cont (list-val (cdr (expval->list val)))))
             (wait-cont (saved-cont)
                        (wait-for-mutex
                         (expval->mutex val)
@@ -301,7 +309,7 @@
     (cases proc proc1
       (procedure (var body saved-env)
                  (value-of/k body
-                             (extend-env var val saved-env)
+                             (extend-env var (newref val) saved-env)
                              cont)))))
 
 ; queue -----------------------------------------------------
@@ -450,11 +458,6 @@
   (begin-exp
     (exp1 expression?)
     (exps (list-of expression?)))
-  (assign-exp
-   (var identifier?)
-   (exp1 expression?))
-  (spawn-exp
-   (exp1 expression?))
   (list-exp
    (lst (list-of number?)))
   (car-exp
@@ -466,7 +469,16 @@
   (emptylist-exp)
   (print-exp
    (exp1 expression?))
-  (mutex-exp))
+  (assign-exp
+   (var identifier?)
+   (exp1 expression?))
+  (spawn-exp
+   (exp1 expression?))
+  (mutex-exp)
+  (wait-exp
+   (exp1 expression?))
+  (signal-exp
+   (exp1 expression?)))
 
 ; value-of-program : Int × Program → FinalAnswer
 (define value-of-program
@@ -478,14 +490,15 @@
                  (value-of/k
                   exp1
                   (init-env)
-                  (end-main-thread-cont))))))
+                  (end-main-thread-cont))
+                 ))))
 
 ; value-of/k : Exp × Env × Cont → FinalAnswer
 (define value-of/k
   (lambda (exp env cont)
     (cases expression exp
       (const-exp (num) (apply-cont cont (num-val num)))
-      (var-exp (var) (apply-cont cont (apply-env env var)))
+      (var-exp (var) (apply-cont cont (deref (apply-env env var))))
       (proc-exp (var body)
                 (apply-cont cont
                             (proc-val
@@ -522,7 +535,7 @@
                      (value-of/k exp1 env cont))
                     (num-val 27)))
       (spawn-exp (exp1)
-                 (value-of/k exp env
+                 (value-of/k exp1 env
                              (spawn-cont cont)))
 
       (list-exp (lst)
@@ -540,18 +553,19 @@
                (value-of/k exp1 env
                            (cdr-cont cont)))
       (print-exp (exp1)
-                 (display (expval->num (value-of/k exp1 env)))
-                 (newline)
-                 (apply-cont cont (num-val 1)))
+                 (value-of/k exp1 env
+                             (print-cont cont)))
       (mutex-exp ()
                  (apply-cont cont (mutex-val (new-mutex))))
-
-      )))
+      (wait-exp (exp1)
+                (value-of/k exp1 env (wait-cont cont)))
+      (signal-exp (exp1)
+                  (value-of/k exp1 env (signal-cont cont))))))
 
 (define value-of-begin-exp
   (lambda (exps env cont)
     (if (null? (cdr exps))
-        (value-of/k (car exps) env)
+        (value-of/k (car exps) env cont)
         (begin
           (value-of/k (car exps) env cont)
           (value-of-begin-exp (cdr exps) env cont)))))
@@ -649,6 +663,18 @@
     (expression
      ("print" "(" expression ")")
      print-exp)
+
+    (expression
+     ("mutex" "(" ")")
+     mutex-exp)
+
+    (expression
+     ("wait" "(" expression ")")
+     wait-exp)
+
+    (expression
+     ("signal" "(" expression ")")
+     signal-exp)
     ))
 
 
