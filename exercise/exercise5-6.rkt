@@ -178,6 +178,15 @@
    (cont continuation?))
   (cdr-cont
    (cont continuation?))
+  (listfst-cont
+   (lst (list-of expression?))
+   (env environment?)
+   (cont continuation?))
+  (listrst-cont
+   (lst (list-of expression?))
+   (val-lst expval?)
+   (env environment?)
+   (cont continuation?))
   )
 
 ; FinalAnswer = ExpVal
@@ -252,6 +261,16 @@
                 (apply-cont cont (expval->car val)))
       (cdr-cont (cont)
                 (apply-cont cont (cdr (expval->list val))))
+      (listfst-cont (lst env cont)
+                    (if (null? lst)
+                        (apply-cont cont (list-val (list val)))
+                        (value-of/k (car lst) env
+                                    (listrst-cont (cdr lst) (list-val (list val)) env cont))))
+      (listrst-cont (lst val-lst env cont)
+                    (if (null? lst)
+                        (apply-cont cont (list-val (append (expval->list val-lst) (list val))))
+                        (value-of/k (car lst) env
+                                    (listrst-cont (cdr lst) (list-val (append (expval->list val-lst) (list val))) env cont))))
       )))
 
 ; apply-procedure/k : Proc × ExpVal × Cont → FinalAnswer
@@ -386,9 +405,11 @@
                (value-of/k exp1 env
                            (cdr-cont cont)))
       (list-exp (lst)
-                (apply-cont cont
-                            (list-val (map num-val lst))))
-      )))
+                (if (null? lst)
+                    (apply-cont cont (list-val '()))
+                    (value-of/k (car lst) env
+                                (listfst-cont (cdr lst) env cont)))
+                ))))
 
 
 (define scanner-spec-cont-letrec
@@ -482,7 +503,7 @@
      null?-exp)
 
     (expression
-     ("list" "(" (separated-list number ",") ")")
+     ("list" "(" (separated-list expression ",") ")")
      list-exp)
 
     ))
@@ -519,4 +540,4 @@
     (eopl:error 'expval-extractor "Expected a ~s, got ~s" expected val)))
 
 
-(define test "let x = 33 in cons(x, -(x,22))")
+(define test "let x = 33 in list(x,-(x,11),-(x,22),-(x,3))")
