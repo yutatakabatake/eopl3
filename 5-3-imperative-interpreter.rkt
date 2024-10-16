@@ -1,6 +1,7 @@
 #lang eopl
 
 ; 引数を受け取らないでexp,env,cont,val,proc1を共有するレジスタとする
+; 引数なしの関数で末尾呼び出し tail call
 
 
 (define-datatype environment environment?
