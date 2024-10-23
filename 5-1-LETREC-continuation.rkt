@@ -189,8 +189,6 @@
    (rator expression?)
    (rand expression?)))
 
-;Syntax data types
-;BNFでの文法
 ; value-of-program : Program → FinalAnswer
 (define value-of-program
   (lambda (pgm)
