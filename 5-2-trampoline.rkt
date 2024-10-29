@@ -338,13 +338,133 @@
 
 
 ; (trampoline (value-of/k <<letrec sigma (x) = if zero?(x) then 0 else -((sigma -(x,1)), -(0,x)) in (sigma 4)>> env (end-cont)))
-; (trampoline (value-of/k <<(sigma 4)>> (extend-env-rec sigma x <<if ...>> env) ((end-cont))))
-; (trampoline (value-of/k <<sigma>> (extend-env-rec sigma x <<if ...>> env) (rator-cont <<4>> (extend-env-rec sigma x <<if ...>> env) (end-cont))))
-; (trampoline (apply-cont (rator-cont <<4>> (extend-env-rec sigma x <<if ...>> env) (end-cont)) (proc-val (procedure x <<if ...>> env))))
-; (trampoline (value-of/k <<4>> (extend-env-rec sigma x <<if ...>>) (rand-cont (proc-val (procedure x <<if ...>> env)) (end-cont))))
-; (trampoline (apply-cont (rand-cont (proc-val (procedure x <<if ...>> env)) (end-cont)) (num-val 4)))
-; (trampoline (apply-procedure/k (procedure x <<if ...>> env)) (num-val 4) (end-cont))
-; (trampoline (value-of/k <<if ...>> (extend-env x (num-val 4) env) (end-cont)))
-; (trampoline (value-of/k <<zero?(x)>> (extend-env x (num-val 4) env) (if-test-cont <<0>> <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) env) (end-cont))))
-; (trampoline (value-of/k <<x>> (extend-env x (num-val 4) env) (if-test-cont <<0>> <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) env) (end-cont))))
-; (trampoline ())
+; (trampoline (value-of/k <<(sigma 4)>> (extend-env-rec sigma x <<if ...>> env) (end-cont)))
+
+; (trampoline (value-of/k <<sigma>>
+;                         (extend-env-rec sigma x <<if ...>> env)
+;                         (rator-cont <<4>> (extend-env-rec sigma x <<if ...>> env) (end-cont))))
+
+; (trampoline (apply-cont (rator-cont <<4>> (extend-env-rec sigma x <<if ...>> env) (end-cont))
+;                         (proc-val (procedure x <<if ...>> env))))
+
+; (trampoline ((lambda (val1) (value-of/k <<4>> (extend-env-rec sigma x <<if ...>> env) (rand-cont val1 (end-cont))))
+;              (proc-val (procedure x <<if ...>> env))))
+
+; ; A
+; (trampoline (value-of/k <<4>>
+;                         (extend-env-rec sigma x <<if ...>> env)
+;                         (rand-cont (proc-val (procedure x <<if ...>> env)) (end-cont))))
+
+; (trampoline (apply-cont (rand-cont (proc-val (procedure x <<if ...>> env)) (end-cont))
+;                         (num-val 4)))
+
+; (trampoline ((lambda (val2)
+;                (lambda ()
+;                  (apply-procedure/k (procedure x <<if ...>> env) val2 (end-cont))))
+;              (num-val 4)))
+
+; (trampoline (lambda ()
+;               (apply-procedure/k (procedure x <<if ...>> env) (num-val 4) (end-cont))))
+
+; ; trampolineが実行
+; (trampoline ((lambda ()
+;                (apply-procedure/k (procedure x <<if ...>> env) (num-val 4) (end-cont)))
+;              ))
+
+; (trampoline (apply-procedure/k (procedure x <<if ...>> env) (num-val 4) (end-cont)))
+
+; (trampoline (lambda ()
+;               (value-of/k <<if ...>>
+;                           (extend-env x (num-val 4) env)
+;                           (end-cont))))
+
+; ; trampolineが実行
+; (trampoline (value-of/k <<if ...>>
+;                         (extend-env x (num-val 4) env)
+;                         (end-cont)))
+
+; (trampoline (value-of/k <<zero?(x)>> (extend-env x (num-val 4) env)
+;                         (if-test-cont <<0>> <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) env) (end-cont))))
+
+; (trampoline (value-of/k <<x>>
+;                         (extend-env x (num-val 4) env)
+;                         (zero1-cont (if-test-cont <<0>> <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) env) (end-cont)))))
+
+; (trampoline (apply-cont (zero1-cont (if-test-cont <<0>> <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) env) (end-cont)))
+;                         (num-val 4)))
+
+; (trampoline ((lambda (val) (apply-cont (if-test-cont <<0>> <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) env) (end-cont))
+;                                        (bool-val (zero? (expval->num val)))))
+;              (num-val 4)))
+
+; (trampoline (apply-cont (if-test-cont <<0>> <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) env) (end-cont))
+;                         (bool-val (zero? 4))))
+
+; (trampoline (apply-cont (if-test-cont <<0>> <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) env) (end-cont))
+;                         (bool-val #f)))
+
+; (trampoline ((lambda (val)
+;                (if (expval->bool val)
+;                    (value-of/k <<0>> (extend-env x (num-val 4) env) (end-cont))
+;                    (value-of/k <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) env) (end-cont))))
+;              (bool-val #f)))
+
+; (trampoline (value-of/k <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) env) (end-cont)))
+
+; (trampoline (value-of/k <<(sigma -(x,1))>>
+;                         (extend-env x (num-val 4) env)
+;                         (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont))))
+
+; ; Aと同じ
+; (trampoline (value-of/k <<sigma>>
+;                         (extend-env x (num-val 4) env)
+;                         (rator-cont <<-(x,1)>> (extend-env x (num-val 4) env) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont)))))
+
+; (trampoline (apply-cont (rator-cont <<-(x,1)>> (extend-env x (num-val 4) env) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont)))
+;                         (proc-val (procedure x <<if ...>> env))))
+
+; (trampoline ((lambda (val1)
+;                (value-of/k <<-(x,1)>>
+;                            (extend-env x (num-val 4) env)
+;                            (rand-cont val1 (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont)))))
+;              (proc-val (procedure x <<if ...>> env))))
+
+; (trampoline (value-of/k <<-(x,1)>>
+;                         (extend-env x (num-val 4) env)
+;                         (rand-cont (proc-val (procedure x <<if ...>> env)) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont)))))
+
+; (trampoline (value-of/k <<x>>
+;                         (extend-env x (num-val 4) env)
+;                         (diff1-cont <<1>> (extend-env x (num-val 4) env) (rand-cont (proc-val (procedure x <<if ...>> env)) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont))))))
+
+; (trampoline (apply-cont (diff1-cont <<1>> (extend-env x (num-val 4) env) (rand-cont (proc-val (procedure x <<if ...>> env)) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont)))))
+;             (num-val 4))
+
+; (trampoline ((lambda (val1)
+;                (value-of/k <<1>>
+;                            (extend-env x (num-val 4) env)
+;                            (diff2-cont val1 (rand-cont (proc-val (procedure x <<if ...>> env)) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont))))))
+;              (num-val 4)))
+
+; (trampoline (value-of/k <<1>>
+;                         (extend-env x (num-val 4) env)
+;                         (diff2-cont (num-val 4) (rand-cont (proc-val (procedure x <<if ...>> env)) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont))))))
+
+; (trampoline (apply-cont (diff2-cont (num-val 4) (rand-cont (proc-val (procedure x <<if ...>> env)) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont))))
+;                         (num-val 1)))
+
+; (trampoline ((lambda (val2)
+;                (apply-cont (rand-cont (proc-val (procedure x <<if ...>> env)) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont))) (num-val (- 4 val2))))
+;              (num-val 1)))
+
+; (trampoline (apply-cont (rand-cont (proc-val (procedure x <<if ...>> env)) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont)))
+;                         (num-val 3)))
+
+; (trampoline ((lambda (val2)
+;                (lambda () (apply-procedure/k (procedure x <<if ...>> env) val2 (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont)))))
+;              (num-val 3)))
+
+; (trampoline (lambda () (apply-procedure/k (procedure x <<if ...>> env) (num-val 3) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont)))))
+
+; ; trampoline実行
+; (trampoline (apply-procedure/k (procedure x <<if ...>> env) (num-val 3) (diff1-cont <<-(0,x)>> (extend-env x (num-val 4)) (end-cont))))
