@@ -258,3 +258,31 @@
                       then 0
                       else -((sigma -(x,1)), -(0,x))
     in (sigma 4)")
+
+; (value-of <<letrec sigma (x) = if ... in (sigma 4)>> init-env)
+; (value-of <<(sigma 4)>> (extend-env-rec sigma x <<if ...>> init-env))
+; (apply-procedure (expval->proc (value-of <<sigma>> (extend-env-rec sigma x <<if ...>> init-env)))
+;                  (value-of 4 (extend-env-rec sigma x <<if ...>> init-env)))
+; (apply-procedure (expval->proc (proc-val (procedure x <<if ...>> (extend-env-rec sigma x <<if ...>> init-env))))
+;                  (num-val 4))
+; (apply-procedure (procedure x <<if ...>> (extend-env-rec sigma x <<if ...>> init-env))
+;                  (num-val 4))
+; (value-of <<if ...>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env)))
+
+; (if (expval->bool (value-of <<zero? (x)>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env))))
+;     (value-of <<0>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env)))
+;     (value-of <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env))))
+
+; (if (expval->bool (bool-val (zero? (expval->num (value-of <<x>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env)))))))
+;     (value-of <<0>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env)))
+;     (value-of <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env))))
+
+; (if (expval->bool (bool-val (zero? (expval->num (num-val 4)))))
+;     (value-of <<0>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env)))
+;     (value-of <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env))))
+
+; (value-of <<-((sigma -(x,1)), -(0,x))>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env)))
+
+; (num-val -
+;          (expval->num (value-of <<(sigma -(x,1))>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env))))
+;          (expval->num (value-of <<-(0,x)>> (extend-env x (num-val 4) (extend-env-rec sigma x <<if ...>> init-env)))))
