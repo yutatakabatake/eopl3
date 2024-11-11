@@ -266,3 +266,37 @@
 (define test3
   "(proc (f) (f (f 77))
        proc (x) -(x,11))")
+
+(define test4 "
+let x = 77 in
+  let f = proc (x) -(x,11) in
+    -((f x), (f (f x)))
+")
+
+; (value-of <<let x = 55 in let f = proc (x) -(x,11) in -((f x), (f (f x)))>> init-env)
+; (value-of <<let f = proc (x) -(x,11) in -((f x), (f (f x)))>> (extend-env x (num-val 77) init-env))
+; (value-of <<-((f x), (f (f x)))>> (extend-env f (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))) (extend-env x (num-val 77) init-env)))
+
+; (num-val -
+;          (expval->num (value-of <<(f x)>> (extend-env f (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))) (extend-env x (num-val 77) init-env))))
+;          (expval->num (value-of <<(f (f x))>> (extend-env f (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))) (extend-env x (num-val 77) init-env)))))
+
+; (num-val -
+;          (expval->num (apply-procedure (expval->proc (value-of <<f>> (extend-env f (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))) (extend-env x (num-val 77) init-env))))
+;                                        (value-of <<x>> (extend-env f (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))) (extend-env x (num-val 77) init-env)))))
+;          (expval->num (apply-procedure (expval->proc (value-of <<f>> (extend-env f (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))) (extend-env x (num-val 77) init-env))))
+;                                        (value-of <<(f x)>> (extend-env f (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))) (extend-env x (num-val 77) init-env))))))
+
+; (num-val -
+;          (expval->num (apply-procedure (expval->proc (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))))
+;                                        (num-val 77)))
+;          (expval->num (apply-procedure (expval->proc (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))))
+;                                        (apply-procedure (expval->proc (value-of <<f>> (extend-env f (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))) (extend-env x (num-val 77) init-env))))
+;                                                         (value-of <<x>> (extend-env f (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))) (extend-env x (num-val 77) init-env)))))))
+
+; (num-val -
+;          (expval->num (apply-procedure (procedure x <<0(x,11)>> (extend-env x (num-val 77) init-env))
+;                                        (num-val 77)))
+;          (expval->num (apply-procedure (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))
+;                                        (apply-procedure (expval->proc (proc-val (procedure x <<-(x,11)>> (extend-env x (num-val 77) init-env))))
+;                                                         (num-val77)))))
