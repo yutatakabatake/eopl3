@@ -467,8 +467,8 @@
                  then raise 99
                  else if zero?(-(car(lst),n))
                       then 0
-                      else -((inner cdr(lst)), -1) 
+                      else -((inner cdr(lst)), -1)
                 in proc (lst)
-                    try (inner lst) 
-                        catch (x) -1 
+                    try (inner lst)
+                        catch (x) -1
     in ((index 5) list(2, 3))")
