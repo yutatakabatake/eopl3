@@ -136,7 +136,7 @@
 
 (define-datatype proc proc?
   (procedure
-   (vars (list-of identifier?))
+   (var identifier?)
    (body expression?)
    (saved-env environment?)))
 
