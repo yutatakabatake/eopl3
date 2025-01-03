@@ -673,6 +673,10 @@
      spawn-exp)
 
     (expression
+     ("cons" "(" expression "," expression ")")
+     cons-exp)
+
+    (expression
      ("list" "(" (separated-list number ",") ")")
      list-exp)
 
