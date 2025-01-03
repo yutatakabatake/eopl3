@@ -373,3 +373,10 @@
 
 (define sp "let x = 5 in -(6,x)")
 (define sp2 "let x = 33 in let y = 22 in if zero?(-(x,11)) then -(y,2) else -(y,4)")
+
+(define sp3
+  "let x = 4
+    in cons(x,
+            cons(cons(-(x,1),
+                      emptylist),
+                  emptylist))")
