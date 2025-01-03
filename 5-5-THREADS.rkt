@@ -3,19 +3,20 @@
 ; threadsを継続を利用して実装
 ; storeを利用した値渡し
 
+; environment ---------------------------------------
 (define-datatype environment environment?
   (empty-env)
   (extend-env
    (var identifier?)
    (val reference?)
    (env environment?))
-  (extend-env-rec
+  (extend-env-rec*
    (p-names (list-of identifier?))
    (b-vars (list-of identifier?))
    (p-bodies (list-of expression?))
    (env environment?)))
 
-;apply-env : Env × Var → SchemeVal
+;apply-env : Env × Var → Ref
 (define apply-env
   (lambda (env search-var)
     (cases environment env
@@ -25,16 +26,28 @@
                   (if (eqv? saved-var search-var)
                       saved-val
                       (apply-env saved-env search-var)))
-      (extend-env-rec (p-names b-vars p-bodies saved-env)
-                      (let ((n (location search-var p-names)))
-                        (if n
-                            (newref
-                             (proc-val
-                              (procedure
-                               (list-ref b-vars n)
-                               (list-ref p-bodies n)
-                               env)))
-                            (apply-env saved-env search-var)))))))
+      (extend-env-rec* (p-names b-vars p-bodies saved-env)
+                       (let ((n (location search-var p-names)))
+                         (if n
+                             (newref
+                              (proc-val
+                               (procedure
+                                (list-ref b-vars n)
+                                (list-ref p-bodies n)
+                                env)))
+                             (apply-env saved-env search-var)))))))
+
+;init-env : () → Env
+;usage: (init-env) = [i=⌈1⌉,v=⌈5⌉,x=⌈10⌉]
+(define init-env
+  (lambda ()
+    (extend-env
+     'i (newref (num-val 1))
+     (extend-env
+      'v (newref (num-val 5))
+      (extend-env
+       'x (newref (num-val 10))
+       (empty-env))))))
 
 ;; location : Sym * Listof(Sym) -> Maybe(Int)
 ;; (location sym syms) returns the location of sym in syms or #f is
@@ -52,81 +65,7 @@
             (+ n 1)))
       (else #f))))
 
-;init-env : () → Env
-;usage: (init-env) = [i=⌈1⌉,v=⌈5⌉,x=⌈10⌉]
-(define init-env
-  (lambda ()
-    (extend-env
-     'i (newref (num-val 1))
-     (extend-env
-      'v (newref (num-val 5))
-      (extend-env
-       'x (newref (num-val 10))
-       (empty-env))))))
-
-
-(define-datatype expval expval?
-  (num-val
-   (value number?))
-  (bool-val
-   (boolean boolean?))
-  (proc-val
-   (proc proc?))
-  (list-val
-   (lst (list-of expval?)))
-  (mutex-val
-   (mutex mutex?)))
-
-(define-datatype proc proc?
-  (procedure
-   (var identifier?)
-   (body expression?)
-   (saved-env environment?)))
-
-;interface
-;expval->num : ExpVal → Int
-(define expval->num
-  (lambda (val)
-    (cases expval val
-      (num-val (num) num)
-      (else (report-expval-extractor-error 'num val)))))
-
-;expval->bool : ExpVal → Bool
-(define expval->bool
-  (lambda (val)
-    (cases expval val
-      (bool-val (bool) bool)
-      (else (report-expval-extractor-error 'bool val)))))
-
-; expval->proc : ExpVal -> Proc
-(define expval->proc
-  (lambda (v)
-    (cases expval v
-      (proc-val (proc) proc)
-      (else (report-expval-extractor-error 'proc v)))))
-
-; expval->proc : ExpVal → ListOf(Int)
-(define expval->list
-  (lambda (v)
-    (cases expval v
-      (list-val (lst) lst)
-      (else (report-expval-extractor-error 'list v)))))
-
-; expval->car : ExpVal → ExpVal
-(define expval->car
-  (lambda (val)
-    (cases expval val
-      (list-val (lst) (car lst))
-      (else (report-expval-extractor-error 'car val)))))
-
-; expval->mutex : ExpVal → Mutex
-(define expval->mutex
-  (lambda (val)
-    (cases expval val
-      (mutex-val (mutex) mutex)
-      (else (report-expval-extractor-error 'mutex val)))))
-
-; store ---------------------------------------------------------
+; store --------------------------------------------------------------------
 ; empty-store : () → Sto
 (define empty-store
   (lambda () '()))
@@ -163,7 +102,7 @@
 
 ; setref! : Ref × ExpVal → Unspecified
 ; usage: sets the-store to a state like the original, but with position ref containing val.
-; the-storeを更新している
+; the-storeのすでにバインドされている変数のexpvalを更新する
 (define setref!
   (lambda (ref val)
     (set! the-store
@@ -182,135 +121,6 @@
                       (setref-inner
                        (cdr store1) (- ref1 1))))))))
             (setref-inner the-store ref)))))
-
-
-; continuation ----------------------------------------
-(define-datatype continuation continuation?
-  (end-cont)
-  (zero1-cont
-   (cont continuation?))
-  (let-exp-cont
-   (var identifier?)
-   (body expression?)
-   (env environment?)
-   (cont continuation?))
-  (if-test-cont
-   (exp2 expression?)
-   (exp3 expression?)
-   (env environment?)
-   (cont continuation?))
-  (diff1-cont
-   (exp2 expression?)
-   (env environment?)
-   (cont continuation?))
-  (diff2-cont
-   (val1 expval?)
-   (cont continuation?))
-  (rator-cont
-   (rand expression?)
-   (env environment?)
-   (cont continuation?))
-  (rand-cont
-   (val1 expval?)
-   (cont continuation?))
-  (null1-cont
-   (cont continuation?))
-  (car-cont
-   (cont continuation?))
-  (cdr-cont
-   (cont continuation?))
-  (print-cont
-   (cont continuation?))
-  (spawn-cont
-   (cont continuation?))
-  (end-main-thread-cont)
-  (end-subthread-cont)
-  (wait-cont
-   (cont continuation?))
-  (signal-cont
-   (cont continuation?)))
-
-; FinalAnswer = ExpVal
-; apply-cont : Cont × ExpVal → FinalAnswer
-(define apply-cont
-  (lambda (cont val)
-    (if (time-expired?)
-        (begin
-          (place-on-ready-queue!
-           (lambda () (apply-cont cont val)))
-          (run-next-thread))
-        (begin
-          (decrement-timer!)
-          (cases continuation cont
-            (end-cont ()
-                      (begin
-                        (eopl:printf "End of computation.~%")
-                        val))
-            (zero1-cont (saved-cont)
-                        (apply-cont saved-cont
-                                    (bool-val
-                                     (zero? (expval->num val)))))
-            (let-exp-cont (var body saved-env saved-cont)
-                          (value-of/k body
-                                      (extend-env var (newref val) saved-env)
-                                      saved-cont))
-            (if-test-cont (exp2 exp3 saved-env saved-cont)
-                          (if (expval->bool val)
-                              (value-of/k exp2 saved-env saved-cont)
-                              (value-of/k exp3 saved-env saved-cont)))
-            (diff1-cont (exp2 env cont)
-                        (value-of/k exp2 env (diff2-cont val cont)))
-            (diff2-cont (val1 cont)
-                        (let ((num1 (expval->num val1))
-                              (num2 (expval->num val)))
-                          (apply-cont cont (num-val (- num1 num2)))))
-            (rator-cont (rand env cont)
-                        (value-of/k rand env (rand-cont val cont)))
-            (rand-cont (val1 cont)
-                       (let ((proc1 (expval->proc val1)))
-                         (apply-procedure/k proc1 val cont)))
-            (null1-cont (saved-cont)
-                        (apply-cont saved-cont
-                                    (bool-val (null? (expval->list val)))))
-            (car-cont (cont)
-                      (apply-cont cont (expval->car val)))
-            (cdr-cont (cont)
-                      (apply-cont cont (list-val (cdr (expval->list val)))))
-            (print-cont (cont)
-                        (display val)
-                        (newline)
-                        (apply-cont cont (num-val 1)))  ; unspecified
-            (spawn-cont (saved-cont)
-                        (let ((proc1 (expval->proc val)))
-                          (place-on-ready-queue!
-                           (lambda ()
-                             (apply-procedure/k proc1
-                                                (num-val 28)
-                                                (end-subthread-cont))))
-                          (apply-cont saved-cont (num-val 73))))
-            (end-main-thread-cont ()
-                                  (set-final-answer! val)
-                                  (run-next-thread))
-            (end-subthread-cont ()
-                                (run-next-thread))
-            (wait-cont (saved-cont)
-                       (wait-for-mutex
-                        (expval->mutex val)
-                        (lambda () (apply-cont saved-cont (num-val 52)))))
-            (signal-cont (saved-cont)
-                         (signal-mutex
-                          (expval->mutex val)
-                          (lambda () (apply-cont saved-cont (num-val 53)))))
-            )))))
-
-; apply-procedure/k : Proc × ExpVal × Cont → FinalAnswer
-(define apply-procedure/k
-  (lambda (proc1 val cont)
-    (cases proc proc1
-      (procedure (var body saved-env)
-                 (value-of/k body
-                             (extend-env var (newref val) saved-env)
-                             cont)))))
 
 ; queue -----------------------------------------------------
 (define empty-queue
@@ -333,6 +143,7 @@
 (define the-max-time-slice 'uninitialized)
 (define the-time-remaining 'uninitialized)
 
+; Thread = () → ExpVal
 ; initialize-scheduler! : Int → Unspecified
 (define initialize-scheduler!
   (lambda (ticks)
@@ -419,6 +230,61 @@
                                    other-waiting-ths)))))
                  (th))))))
 
+; expressed value -------------------------------------
+(define-datatype expval expval?
+  (num-val
+   (num number?))
+  (bool-val
+   (bool boolean?))
+  (proc-val
+   (proc proc?))
+  (list-val
+   (lst (list-of expval?)))
+  (mutex-val
+   (mutex mutex?)))
+
+(define-datatype proc proc?
+  (procedure
+   (var identifier?)
+   (body expression?)
+   (saved-env environment?)))
+
+;interface
+;expval->num : ExpVal → Int
+(define expval->num
+  (lambda (val)
+    (cases expval val
+      (num-val (num) num)
+      (else (report-expval-extractor-error 'num val)))))
+
+;expval->bool : ExpVal → Bool
+(define expval->bool
+  (lambda (val)
+    (cases expval val
+      (bool-val (bool) bool)
+      (else (report-expval-extractor-error 'bool val)))))
+
+; expval->proc : ExpVal -> Proc
+(define expval->proc
+  (lambda (val)
+    (cases expval val
+      (proc-val (proc) proc)
+      (else (report-expval-extractor-error 'proc val)))))
+
+; expval->proc : ExpVal → ListOf(Int)
+(define expval->list
+  (lambda (val)
+    (cases expval val
+      (list-val (lst) lst)
+      (else (report-expval-extractor-error 'list val)))))
+
+; expval->mutex : ExpVal → Mutex
+(define expval->mutex
+  (lambda (val)
+    (cases expval val
+      (mutex-val (mutex) mutex)
+      (else (report-expval-extractor-error 'mutex val)))))
+
 ; program,expression ----------------------------------------------------------
 ;Syntax data types
 ;BNFでの文法
@@ -429,37 +295,41 @@
 (define-datatype expression expression?
   (const-exp
    (num number?))
-  (diff-exp
-   (exp1 expression?)
-   (exp2 expression?))
+  (var-exp
+   (var identifier?))
+  (proc-exp
+   (var identifier?)
+   (body expression?))
+  (letrec-exp
+   (proc-names (list-of identifier?))
+   (bound-vars (list-of identifier?))
+   (proc-bodies (list-of expression?))
+   (letrec-body expression?))
   (zero?-exp
    (exp1 expression?))
   (if-exp
    (exp1 expression?)
    (exp2 expression?)
    (exp3 expression?))
-  (var-exp
-   (var identifier?))
   (let-exp
    (var identifier?)
    (exp1 expression?)
    (body expression?))
-  (proc-exp
-   (var identifier?)
-   (body expression?))
+  (diff-exp
+   (exp1 expression?)
+   (exp2 expression?))
   (call-exp
    (rator expression?)
    (rand expression?))
-  (letrec-exp
-   (proc-names (list-of identifier?))
-   (bound-vars (list-of identifier?))
-   (proc-bodies (list-of expression?))
-   (letrec-body expression?))
   (begin-exp
     (exp1 expression?)
     (exps (list-of expression?)))
-  (list-exp
-   (lst (list-of number?)))
+  (assign-exp
+   (var identifier?)
+   (exp1 expression?))
+  (cons-exp
+   (exp1 expression?)
+   (exp2 expression?))
   (car-exp
    (exp1 expression?))
   (cdr-exp
@@ -467,10 +337,9 @@
   (null?-exp
    (exp1 expression?))
   (emptylist-exp)
+  (list-exp
+   (exps (list-of expression?)))
   (print-exp
-   (exp1 expression?))
-  (assign-exp
-   (var identifier?)
    (exp1 expression?))
   (spawn-exp
    (exp1 expression?))
@@ -503,9 +372,9 @@
                 (apply-cont cont
                             (proc-val
                              (procedure var body env))))
-      (letrec-exp (p-name b-var p-body letrec-body)
+      (letrec-exp (p-names b-vars p-bodies letrec-body)
                   (value-of/k letrec-body
-                              (extend-env-rec p-name b-var p-body env)
+                              (extend-env-rec* p-names b-vars p-bodies env)
                               cont))
       (zero?-exp (exp1)
                  (value-of/k exp1 env
@@ -522,39 +391,37 @@
       (call-exp (rator rand)
                 (value-of/k rator env
                             (rator-cont rand env cont)))
-
       (begin-exp (exp1 exps)
-                 (value-of-begin-exp (cons exp1 exps) env cont))
-
-      ; 環境内でvarを探してバインドされている参照を得る
-      ; exp1を評価した値を参照先に割り当てる
-      (assign-exp (var exp1)
-                  (begin
-                    (setref!
-                     (apply-env env var)
-                     (value-of/k exp1 env cont))
-                    (num-val 27)))
-      (spawn-exp (exp1)
                  (value-of/k exp1 env
-                             (spawn-cont cont)))
-
-      (list-exp (lst)
-                (apply-cont cont
-                            (list-val (map num-val lst))))
+                             (begin-exp-cont exps env cont)))
+      (assign-exp (var exp1)
+                  (value-of/k exp1 env
+                              (set-rhs-cont env var cont)))
+      (cons-exp (exp1 exp2)
+                (value-of/k exp1 env
+                            (cons1-cont exp2 env cont)))
       (emptylist-exp ()
                      (apply-cont cont (list-val '())))
       (null?-exp (exp1)
                  (value-of/k exp1 env
-                             (null1-cont cont)))
+                             (null?-cont cont)))
       (car-exp (exp1)
                (value-of/k exp1 env
-                           (car-cont cont)))
+                           (car-exp-cont cont)))
       (cdr-exp (exp1)
                (value-of/k exp1 env
-                           (cdr-cont cont)))
+                           (cdr-exp-cont cont)))
+      (list-exp (exps)
+                (if (null? exps)
+                    (apply-cont cont (list-val '()))
+                    (value-of/k (car exps) env
+                                (listfst-cont (cdr exps) env cont))))
       (print-exp (exp1)
                  (value-of/k exp1 env
                              (print-cont cont)))
+      (spawn-exp (exp1)
+                 (value-of/k exp1 env
+                             (spawn-cont cont)))
       (mutex-exp ()
                  (apply-cont cont (mutex-val (new-mutex))))
       (wait-exp (exp1)
@@ -562,14 +429,180 @@
       (signal-exp (exp1)
                   (value-of/k exp1 env (signal-cont cont))))))
 
-(define value-of-begin-exp
-  (lambda (exps env cont)
-    (if (null? (cdr exps))
-        (value-of/k (car exps) env cont)
-        (begin
-          (value-of/k (car exps) env cont)
-          (value-of-begin-exp (cdr exps) env cont)))))
+; apply-procedure/k : Proc × ExpVal × Cont → FinalAnswer
+(define apply-procedure/k
+  (lambda (proc1 val cont)
+    (cases proc proc1
+      (procedure (var body saved-env)
+                 (value-of/k body
+                             (extend-env var (newref val) saved-env)
+                             cont)))))
 
+; continuation ------------------------------------------------------
+(define-datatype continuation continuation?
+  (end-cont)
+  (zero1-cont
+   (cont continuation?))
+  (let-exp-cont
+   (var identifier?)
+   (body expression?)
+   (env environment?)
+   (cont continuation?))
+  (if-test-cont
+   (exp2 expression?)
+   (exp3 expression?)
+   (env environment?)
+   (cont continuation?))
+  (diff1-cont
+   (exp2 expression?)
+   (env environment?)
+   (cont continuation?))
+  (diff2-cont
+   (val1 expval?)
+   (cont continuation?))
+  (rator-cont
+   (rand expression?)
+   (env environment?)
+   (cont continuation?))
+  (rand-cont
+   (val1 expval?)
+   (cont continuation?))
+  (begin-exp-cont
+    (exps (list-of expression?))
+    (env environment?)
+    (cont continuation?))
+  (set-rhs-cont
+   (env environment?)
+   (var identifier?)
+   (cont continuation?))
+  (cons1-cont
+   (exp2 expression?)
+   (env environment?)
+   (cont continuation?))
+  (cons2-cont
+   (val1 expval?)
+   (cont continuation?))
+  (null?-cont
+   (cont continuation?))
+  (car-exp-cont
+   (cont continuation?))
+  (cdr-exp-cont
+   (cont continuation?))
+  (listfst-cont
+   (exps (list-of expression?))
+   (env environment?)
+   (cont continuation?))
+  (listrst-cont
+   (exps (list-of expression?))
+   (lst expval?)
+   (env environment?)
+   (cont continuation?))
+  (print-cont
+   (cont continuation?))
+  (spawn-cont
+   (cont continuation?))
+  (end-main-thread-cont)
+  (end-subthread-cont)
+  (wait-cont
+   (cont continuation?))
+  (signal-cont
+   (cont continuation?)))
+
+; FinalAnswer = ExpVal
+; apply-cont : Cont × ExpVal → FinalAnswer
+(define apply-cont
+  (lambda (cont val)
+    (if (time-expired?)
+        (begin
+          (place-on-ready-queue!
+           (lambda () (apply-cont cont val)))
+          (run-next-thread))
+        (begin
+          (decrement-timer!)
+          (cases continuation cont
+            (end-cont ()
+                      (begin
+                        (eopl:printf "End of computation.~%")
+                        val))
+            (zero1-cont (saved-cont)
+                        (apply-cont saved-cont
+                                    (bool-val
+                                     (zero? (expval->num val)))))
+            (let-exp-cont (var body saved-env saved-cont)
+                          (value-of/k body
+                                      (extend-env var (newref val) saved-env) saved-cont))
+            (if-test-cont (exp2 exp3 saved-env saved-cont)
+                          (if (expval->bool val)
+                              (value-of/k exp2 saved-env saved-cont)
+                              (value-of/k exp3 saved-env saved-cont)))
+            (diff1-cont (exp2 env cont)
+                        (value-of/k exp2 env (diff2-cont val cont)))
+            (diff2-cont (val1 cont)
+                        (let ((num1 (expval->num val1))
+                              (num2 (expval->num val)))
+                          (apply-cont cont (num-val (- num1 num2)))))
+            (rator-cont (rand env cont)
+                        (value-of/k rand env (rand-cont val cont)))
+            (rand-cont (val1 cont)
+                       (let ((proc1 (expval->proc val1)))
+                         (apply-procedure/k proc1 val cont)))
+            (begin-exp-cont (exps env cont)
+                            (if (null? exps)
+                                (apply-cont cont val)
+                                (value-of/k (car exps) env
+                                            (begin-exp-cont (cdr exps) env cont))))
+            (set-rhs-cont (saved-env var saved-cont)
+                          (let ((ref (apply-env saved-env var)))
+                            (setref! ref val)
+                            (apply-cont saved-cont (num-val 26))))
+            (cons1-cont (exp2 env cont)
+                        (value-of/k exp2 env (cons2-cont val cont)))
+            (cons2-cont (val1 cont)
+                        (apply-cont cont (list-val (cons val1 (expval->list val)))))
+            (null?-cont (cont)
+                        (apply-cont cont (bool-val (null? (expval->list val)))))
+            (car-exp-cont (cont)
+                          (apply-cont cont (car (expval->list val))))
+            (cdr-exp-cont (cont)
+                          (apply-cont cont (list-val (cdr (expval->list val)))))
+            (listfst-cont (exps env cont)
+                          (if (null? exps)
+                              (apply-cont cont (list-val (list val)))
+                              (value-of/k (car exps) env
+                                          (listrst-cont (cdr exps) (list-val (list val)) env cont))))
+            (listrst-cont (exps lst env cont)
+                          (if (null? exps)
+                              (apply-cont cont (list-val (append (expval->list lst) (list val))))
+                              (value-of/k (car exps) env
+                                          (listrst-cont (cdr exps)
+                                                        (list-val (append (expval->list lst) (list val)))
+                                                        env cont))))
+            (print-cont (cont)
+                        (display val)
+                        (newline)
+                        (apply-cont cont (num-val 1)))  ; unspecified
+            (spawn-cont (saved-cont)
+                        (let ((proc1 (expval->proc val)))
+                          (place-on-ready-queue!
+                           (lambda ()
+                             (apply-procedure/k proc1
+                                                (num-val 28)
+                                                (end-subthread-cont))))
+                          (apply-cont saved-cont (num-val 73))))
+            (end-main-thread-cont ()
+                                  (set-final-answer! val)
+                                  (run-next-thread))
+            (end-subthread-cont ()
+                                (run-next-thread))
+            (wait-cont (saved-cont)
+                       (wait-for-mutex
+                        (expval->mutex val)
+                        (lambda () (apply-cont saved-cont (num-val 52)))))
+            (signal-cont (saved-cont)
+                         (signal-mutex
+                          (expval->mutex val)
+                          (lambda () (apply-cont saved-cont (num-val 53)))))
+            )))))
 
 (define scanner-spec-threads
   '((whitespace (whitespace) skip) ; Skip the whitespace
@@ -725,7 +758,7 @@
                 ref the-store)))
 
 
-
+; schedularが割り込む前にprintする
 (define figure5.16
   "letrec
         noisy (l) = if null?(l) 
@@ -746,13 +779,13 @@
   "let buffer = 0
     in let producer = proc (n)
             letrec
-                wait(k) = if zero?(k)
+                Wwait(k) = if zero?(k)
                           then set buffer = n 
                           else begin
                                print(-(k,-200));
-                               (wait -(k,1))
+                               (Wwait -(k,1))
                                 end
-            in (wait 5)
+            in (Wwait 5)
         in let consumer = proc (d)
                 letrec busywait (k) = if zero?(buffer) 
                                       then begin
@@ -763,7 +796,7 @@
                 in (busywait 0)
             in begin
                 spawn(proc (d) (producer 44)); 
-                print(300);
+                % print(300);
                 (consumer 86)
                end")
 
@@ -775,7 +808,8 @@
             in begin
                   spawn((incr_x 100));
                   spawn((incr_x 200));
-                  spawn((incr_x 300))
+                  spawn((incr_x 300));
+                  x
                end")
 
 (define safe-counter-mutex
@@ -791,5 +825,25 @@
                 in begin
                     spawn((incr_x 100));
                     spawn((incr_x 200));
-                    spawn((incr_x 300))
+                    spawn((incr_x 300));
+                    x
                    end")
+
+(define safe-ctr
+  "let ctr = let x = 0 in let mut = mutex()
+             in proc (n) proc (d)
+                  begin
+                   wait(mut);
+                   print(n); 
+                   print(x);
+                   set x = -(x,-1);
+                   print(n); 
+                   print(x);
+                   signal(mut)
+                  end
+   in begin
+       spawn((ctr 100));
+       spawn((ctr 200));
+       spawn((ctr 300));
+       999
+      end")
