@@ -136,7 +136,7 @@
 
 (define-datatype proc proc?
   (procedure
-   (vars identifier?)
+   (vars (list-of identifier?))
    (body expression?)
    (saved-env environment?)))
 
@@ -162,6 +162,12 @@
       (proc-val (proc) proc)
       (else (report-expval-extractor-error 'proc v)))))
 
+; expval->list : ExpVal → ListOf(ExpVal)
+(define expval->list
+  (lambda (val)
+    (cases expval val
+      (list-val (lst) lst)
+      (else (report-expval-extractor-error 'list val)))))
 
 ; continuation ------------------------------------------------------
 (define-datatype continuation continuation?
@@ -199,6 +205,28 @@
   (set-rhs-cont
    (env environment?)
    (var identifier?)
+   (cont continuation?))
+  (cons1-cont
+   (exp2 expression?)
+   (env environment?)
+   (cont continuation?))
+  (cons2-cont
+   (val1 expval?)
+   (cont continuation?))
+  (null?-cont
+   (cont continuation?))
+  (car-exp-cont
+   (cont continuation?))
+  (cdr-exp-cont
+   (cont continuation?))
+  (listfst-cont
+   (exps (list-of expression?))
+   (env environment?)
+   (cont continuation?))
+  (listrst-cont
+   (exps (list-of expression?))
+   (lst expval?)
+   (env environment?)
    (cont continuation?)))
 
 ; FinalAnswer = ExpVal
@@ -241,6 +269,28 @@
                     (let ((ref (apply-env saved-env var)))
                       (setref! ref val)
                       (apply-cont saved-cont (num-val 26))))
+      (cons1-cont (exp2 env cont)
+                  (value-of/k exp2 env (cons2-cont val cont)))
+      (cons2-cont (val1 cont)
+                  (apply-cont cont (list-val (cons val1 (list val)))))
+      (null?-cont (cont)
+                  (apply-cont cont (bool-val (null? (expval->list val)))))
+      (car-exp-cont (cont)
+                    (apply-cont cont (car (expval->list val))))
+      (cdr-exp-cont (cont)
+                    (apply-cont cont (list-val (cdr (expval->list val)))))
+      (listfst-cont (exps env cont)
+                    (if (null? exps)
+                        (apply-cont cont (list-val (list val)))
+                        (value-of/k (car exps) env
+                                    (listrst-cont (cdr exps) (list-val (list val)) env cont))))
+      (listrst-cont (exps lst env cont)
+                    (if (null? exps)
+                        (apply-cont cont (list-val (append (expval->list lst) (list val))))
+                        (value-of/k (car exps) env
+                                    (listrst-cont (cdr exps)
+                                                  (list-val (append (expval->list lst) (list val)))
+                                                  env cont))))
       )))
 
 ; apply-procedure/k : Proc × ExpVal × Cont → FinalAnswer
@@ -292,7 +342,19 @@
     (exps (list-of expression?)))
   (assign-exp
    (var identifier?)
-   (exp1 expression?)))
+   (exp1 expression?))
+  (cons-exp
+   (exp1 expression?)
+   (exp2 expression?))
+  (car-exp
+   (exp1 expression?))
+  (cdr-exp
+   (exp1 expression?))
+  (null?-exp
+   (exp1 expression?))
+  (emptylist-exp)
+  (list-exp
+   (exps (list-of expression?))))
 
 ; value-of-program : Program → FinalAnswer
 (define value-of-program
@@ -336,7 +398,27 @@
                              (begin-exp-cont exps env cont)))
       (assign-exp (var exp1)
                   (value-of/k exp1 env
-                              (set-rhs-cont env var cont))))))
+                              (set-rhs-cont env var cont)))
+      (cons-exp (exp1 exp2)
+                (value-of/k exp1 env
+                            (cons1-cont exp2 env cont)))
+      (emptylist-exp ()
+                     (apply-cont cont (list-val '())))
+      (null?-exp (exp1)
+                 (value-of/k exp1 env
+                             (null?-cont cont)))
+      (car-exp (exp1)
+               (value-of/k exp1 env
+                           (car-exp-cont cont)))
+      (cdr-exp (exp1)
+               (value-of/k exp1 env
+                           (cdr-exp-cont cont)))
+      (list-exp (exps)
+                (if (null? exps)
+                    (apply-cont cont (list-val '()))
+                    (value-of/k (car exps) env
+                                (listfst-cont (cdr exps) env cont))))
+      )))
 
 
 (define scanner-spec-cont-implicit
@@ -405,6 +487,30 @@
     (expression
      ("set" identifier "=" expression)
      assign-exp)
+
+    (expression
+     ("cons" "(" expression "," expression ")")
+     cons-exp)
+
+    (expression
+     ("car" "(" expression ")")
+     car-exp)
+
+    (expression
+     ("cdr" "(" expression ")")
+     cdr-exp)
+
+    (expression
+     ("emptylist")
+     emptylist-exp)
+
+    (expression
+     ("null?" "(" expression ")")
+     null?-exp)
+
+    (expression
+     ("list" "(" (separated-list expression ",") ")")
+     list-exp)
     ))
 
 (define identifier?
