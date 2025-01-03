@@ -303,7 +303,7 @@
       (car-cont (cont)
                 (apply-cont cont (expval->car val)))
       (cdr-cont (cont)
-                (apply-cont cont (cdr (expval->list val))))
+                (apply-cont cont (list-val (cdr (expval->list val)))))
       (listfst-cont (lst env cont)
                     (if (null? lst)
                         (apply-cont cont (list-val (list val)))
