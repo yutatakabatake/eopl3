@@ -272,7 +272,7 @@
       (cons1-cont (exp2 env cont)
                   (value-of/k exp2 env (cons2-cont val cont)))
       (cons2-cont (val1 cont)
-                  (apply-cont cont (list-val (cons val1 (list val)))))
+                  (apply-cont cont (list-val (cons val1 (expval->list val)))))
       (null?-cont (cont)
                   (apply-cont cont (bool-val (null? (expval->list val)))))
       (car-exp-cont (cont)
