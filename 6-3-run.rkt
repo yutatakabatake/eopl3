@@ -136,7 +136,7 @@
    (letrec-body inpexp?))
   (proc-exp
    (vars (list-of identifier?))
-   (rands (list-of inpexp?)))
+   (body inpexp?))
   (call-exp
    (rator inpexp?)
    (rands (list-of inpexp?)))
