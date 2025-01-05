@@ -108,7 +108,9 @@
    (simple1 simple-exp?))
   (cps-proc-exp
    (vars (list-of identifier?))
-   (body tfexp?)))
+   (body tfexp?))
+  (cps-sum-exp
+   (simple-exps (list-of simple-exp?))))
 
 (define-datatype tfexp tfexp?
   (simple-exp->exp
@@ -138,32 +140,32 @@
 
 ; value-of-simple-exp : SimpleExp × Env -> FinalAnswer
 (define value-of-simple-exp
-  (lambda (exp env)
-    (cases simple-exp exp
+  (lambda (simple env)
+    (cases simple-exp simple
       (cps-const-exp (num) (num-val num))
       (cps-var-exp (var) (apply-env env var))
-
-      (cps-diff-exp (exp1 exp2)
+      (cps-diff-exp (simple1 simple2)
                     (let ((val1
                            (expval->num
-                            (value-of-simple-exp exp1 env)))
+                            (value-of-simple-exp simple1 env)))
                           (val2
                            (expval->num
-                            (value-of-simple-exp exp2 env))))
+                            (value-of-simple-exp simple2 env))))
                       (num-val
                        (- val1 val2))))
-
-      (cps-zero?-exp (exp1)
+      (cps-zero?-exp (simple1)
                      (bool-val
                       (zero?
                        (expval->num
-                        (value-of-simple-exp exp1 env)))))
-
+                        (value-of-simple-exp simple1 env)))))
       (cps-proc-exp (vars body)
                     (proc-val
                      (procedure vars body env)))
-
-      )))
+      (cps-sum-exp (simple-exps)
+                   (let ((vals (map (lambda (simple-exp) (value-of-simple-exp simple-exp env)) simple-exps)))
+                     (let ((nums (map expval->num vals)))
+                       (num-val
+                        (apply + nums))))))))
 
 ; value-of/k : TfExp × Env × Cont → FinalAnswer
 (define value-of/k
@@ -256,6 +258,11 @@
      ("proc" "(" (separated-list identifier ",") ")" tfexp)
      cps-proc-exp)
 
+    ; add-exp : +(a,b,...)
+    (simple-exp
+     ("+" "("  (separated-list simple-exp ",") ")")
+     cps-sum-exp)
+
     (tfexp
      (simple-exp)
      simple-exp->exp)
@@ -280,8 +287,7 @@
     ; call-exp : (a b)
     (tfexp
      ("(" simple-exp (arbno simple-exp) ")")
-     cps-call-exp)
-    ))
+     cps-call-exp)))
 
 (define identifier?
   (lambda (x)
