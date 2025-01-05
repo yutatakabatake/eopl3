@@ -238,7 +238,7 @@
     (number ("-" digit (arbno digit)) number)))
 
 (define grammar-cps-out
-  '((program (tfexp) cps-a-program)
+  '((cps-out-program (tfexp) cps-a-program)
 
     (simple-exp (number) cps-const-exp)
     (simple-exp (identifier) cps-var-exp)

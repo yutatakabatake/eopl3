@@ -303,8 +303,8 @@
      call-exp)))
 
 
-;run : String → ExpVal
-(define run
+;translate : String → cps-out-program
+(define translate
   (lambda (string)
     (cps-of-program (scan&parse string))))
 
