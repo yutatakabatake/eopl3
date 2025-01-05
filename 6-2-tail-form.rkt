@@ -121,7 +121,7 @@
    (body tfexp?))
   (cps-letrec-exp
    (p-names (list-of identifier?))
-   (b-vars (list-of identifier?))
+   (b-varss (list-of identifier?))
    (p-bodies (list-of tfexp?))
    (body tfexp?))
   (cps-if-exp
