@@ -14,7 +14,7 @@
    (env environment?))
   (extend-env-rec*
    (p-names (list-of identifier?))
-   (b-vars (list-of identifier?))
+   (b-varss (list-of (list-of identifier?)))
    (p-bodies (list-of tfexp?))
    (env environment?)))
 
@@ -34,12 +34,12 @@
                        (if (eqv? (car saved-vars) search-var)
                            (car saved-vals)
                            (apply-env (extend-env* (cdr saved-vars) (cdr saved-vals) saved-env) search-var))))
-      (extend-env-rec* (p-names b-vars p-bodies saved-env)
+      (extend-env-rec* (p-names b-varss p-bodies saved-env)
                        (if (null? p-names)
                            (apply-env saved-env search-var)
                            (if (eqv? search-var (car p-names))
-                               (proc-val (procedure (car b-vars) (car p-bodies) env))
-                               (apply-env (extend-env-rec* (cdr p-names) (cdr b-vars) (cdr p-bodies) saved-env) search-var)))))))
+                               (proc-val (procedure (car b-varss) (car p-bodies) env))
+                               (apply-env (extend-env-rec* (cdr p-names) (cdr b-varss) (cdr p-bodies) saved-env) search-var)))))))
 
 ;init-env : () → Env
 ;usage: (init-env) = [i=⌈1⌉,v=⌈5⌉,x=⌈10⌉]
@@ -121,7 +121,7 @@
    (body tfexp?))
   (cps-letrec-exp
    (p-names (list-of identifier?))
-   (b-varss (list-of identifier?))
+   (b-varss (list-of (list-of identifier?)))
    (p-bodies (list-of tfexp?))
    (body tfexp?))
   (cps-if-exp
