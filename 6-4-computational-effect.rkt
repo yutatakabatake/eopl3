@@ -56,6 +56,63 @@
        'x (num-val 10)
        (empty-env))))))
 
+;; Store ------------------------------------------------------------------
+; empty-store : () → Sto
+(define empty-store
+  (lambda () '()))
+
+; usage: A Scheme variable containing the current state of the store. Initially set to a dummy value.
+(define the-store 'uninitialized)
+
+; get-store : () → Sto
+(define get-store
+  (lambda () the-store))
+
+; initialize-store! : () → Unspecified
+; usage: (initialize-store!) sets the-store to the empty store
+(define initialize-store!
+  (lambda ()
+    (set! the-store (empty-store))))
+
+; reference? : SchemeVal → Bool
+(define reference?
+  (lambda (v)
+    (integer? v)))
+
+; newref : ExpVal → Ref
+(define newref
+  (lambda (val)
+    (let ((next-ref (length the-store)))
+      (set! the-store (append the-store (list val)))
+      next-ref)))
+
+; deref : Ref → ExpVal
+(define deref
+  (lambda (ref)
+    (list-ref the-store ref)))
+
+; setref! : Ref × ExpVal → Unspecified
+; usage: sets the-store to a state like the original, but with position ref containing val.
+; the-storeを更新している
+(define setref!
+  (lambda (ref val)
+    (set! the-store
+          (letrec
+              ((setref-inner
+                ; usage: returns a list like store1, except that position ref1 contains val.
+                (lambda (store1 ref1)
+                  (cond
+                    ((null? store1)
+                     (report-invalid-reference ref the-store))
+                    ((zero? ref1)
+                     (cons val (cdr store1)))
+                    (else
+                     (cons
+                      (car store1)
+                      (setref-inner
+                       (cdr store1) (- ref1 1))))))))
+            (setref-inner the-store ref)))))
+
 ;Expressed values -------------------------------------------------------------
 (define-datatype expval expval?
   (num-val
@@ -63,7 +120,9 @@
   (bool-val
    (bool boolean?))
   (proc-val
-   (proc proc?)))
+   (proc proc?))
+  (ref-val
+   (ref reference?)))
 
 (define-datatype proc proc?
   (procedure
@@ -92,6 +151,13 @@
     (cases expval v
       (proc-val (proc) proc)
       (else (report-expval-extractor-error 'proc v)))))
+
+; expval->proc : ExpVal -> Ref
+(define expval->ref
+  (lambda (v)
+    (cases expval v
+      (ref-val (ref) ref)
+      (else (report-expval-extractor-error 'reference v)))))
 
 ; conitnuation -----------------------------------------------------------------
 (define-datatype continuation continuation?
@@ -144,7 +210,14 @@
   (sum-exp
    (exps (list-of inpexp?)))
   (print-exp
-   (rator inpexp?)))
+   (rator inpexp?))
+  (newref-exp
+   (exp1 inpexp?))
+  (deref-exp
+   (exp1 inpexp?))
+  (setref-exp
+   (exp1 inpexp?)
+   (exp2 inpexp?)))
 
 (define scanner-spec-cps-in
   '((whitespace (whitespace) skip) ; Skip the whitespace
@@ -204,7 +277,19 @@
 
     (inpexp
      ("print" "(" inpexp ")")
-     print-exp)))
+     print-exp)
+
+    (inpexp
+     ("newref" "(" inpexp ")")
+     newref-exp)
+
+    (inpexp
+     ("deref" "(" inpexp ")")
+     deref-exp)
+
+    (inpexp
+     ("setref" "(" inpexp "," inpexp ")")
+     setref-exp)))
 
 ; CPS-OUT ---------------------------------------------------------------------
 (define-datatype cps-out-program cps-out-program?
@@ -248,6 +333,16 @@
    (rands (list-of simple-exp?)))
   (cps-printk-exp
    (simple-exp1 simple-exp?)
+   (body tfexp?))
+  (cps-newrefk-exp
+   (simple1 simple-exp?)
+   (simple2 simple-exp?))
+  (cps-derefk-exp
+   (simple1 simple-exp?)
+   (simple2 simple-exp?))
+  (cps-setrefk-exp
+   (simple1 simple-exp?)
+   (simple2 simple-exp?)
    (body tfexp?)))
 
 ; translate --------------------------------------------------------------------
@@ -316,7 +411,23 @@
                                 (cps-printk-exp
                                  (car simples)
                                  (make-send-to-cont k-exp
-                                                    (cps-const-exp 38)))))))))
+                                                    (cps-const-exp 38))))))
+      (newref-exp (exp1)
+                  (cps-of-exps (list exp1)
+                               (lambda (simples)
+                                 (cps-newrefk-exp (car simples) k-exp))))
+      (deref-exp (exp1)
+                 (cps-of-exps (list exp1)
+                              (lambda (simples)
+                                (cps-derefk-exp (car simples) k-exp))))
+      (setref-exp (exp1 exp2)
+                  (cps-of-exps (list exp1 exp2)
+                               (lambda (simples)
+                                 (cps-setrefk-exp
+                                  (car simples)
+                                  (cadr simples)
+                                  (make-send-to-cont k-exp
+                                                     (cps-const-exp 23)))))))))
 
 ; cps-of-simple-exp : InpExp → SimpleExp
 ; usage: assumes (inp-exp-simple? exp).
@@ -436,6 +547,7 @@
 
 (define value-of-program
   (lambda (pgm)
+    (initialize-store!)
     (cases cps-out-program pgm
       (cps-a-program (exp1)
                      (value-of/k exp1 (init-env) (end-cont))))))
@@ -502,7 +614,30 @@
                       (begin
                         (eopl:printf "~s~%"
                                      (value-of-simple-exp simple1 env))
-                        (value-of/k body env cont))))))
+                        (value-of/k body env cont)))
+      (cps-newrefk-exp (simple1 simple2)
+                       (let ((val1 (value-of-simple-exp simple1 env))
+                             (val2 (value-of-simple-exp simple2 env)))
+                         (let ((newval (ref-val (newref val1))))
+                           (apply-procedure/k
+                            (expval->proc val2)
+                            (list newval)
+                            cont))))
+      (cps-derefk-exp (simple1 simple2)
+                      (apply-procedure/k
+                       (expval->proc (value-of-simple-exp simple2 env))
+                       (list
+                        (deref
+                         (expval->ref
+                          (value-of-simple-exp simple1 env))))
+                       cont))
+      (cps-setrefk-exp (simple1 simple2 body)
+                       (let ((ref (expval->ref
+                                   (value-of-simple-exp simple1 env)))
+                             (val (value-of-simple-exp simple2 env)))
+                         (begin
+                           (setref! ref val)
+                           (value-of/k body env cont)))))))
 
 ; apply-procedure : Proc × ExpVal → ExpVal
 (define apply-procedure/k
@@ -577,8 +712,27 @@
                 "non-simple inpexp to cps-of-simple-exp: ~s"
                 exp)))
 
+(define report-invalid-reference
+  (lambda (ref the-store)
+    (eopl:error 'setref
+                "illegal reference ~s in store ~s"
+                ref the-store)))
+
 (define sigma
   "letrec sigma (x) = if zero?(x) 
                       then 0
                       else +((sigma -(x,1)), x)
     in (sigma 5)")
+
+(define yield_21
+  "let x = newref(33) in 
+    let y = newref(44) in
+      let z = setref(x, 22) in
+        -(deref(x),1)")
+
+(define yield_21k
+  "newrefk(33, proc (loc1)
+                newrefk(44, proc (loc2)
+                              setrefk(loc1,22);
+                              derefk(loc1, proc (val)
+                                            -(val,1))))")
