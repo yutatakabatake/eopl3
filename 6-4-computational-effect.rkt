@@ -3,6 +3,7 @@
 ; CPS-INをCPS-OUTに変換する
 ; 変換したCPS-OUTを評価する
 ; print-expを追加してcomputational effectを確認する
+; EXPLICIT-REFSを追加
 
 ; environment ------------------------------------------------------------------
 (define-datatype environment environment?
@@ -217,7 +218,14 @@
    (exp1 inpexp?))
   (setref-exp
    (exp1 inpexp?)
-   (exp2 inpexp?)))
+   (exp2 inpexp?))
+  ; (letcc-exp
+  ;  (var identifier?)
+  ;  (body inpexp?))
+  ; (throw-exp
+  ;  (exp1 inpexp?)
+  ;  (exp2 inpexp?))
+  )
 
 (define scanner-spec-cps-in
   '((whitespace (whitespace) skip) ; Skip the whitespace
@@ -289,7 +297,16 @@
 
     (inpexp
      ("setref" "(" inpexp "," inpexp ")")
-     setref-exp)))
+     setref-exp)
+
+    ; (inpexp
+    ;  ("letcc" identifier "in" inpexp)
+    ;  letcc-exp)
+
+    ; (inpexp
+    ;  ("throw" inpexp "to" inpexp)
+    ;  throw-exp)
+    ))
 
 ; CPS-OUT ---------------------------------------------------------------------
 (define-datatype cps-out-program cps-out-program?
@@ -343,7 +360,11 @@
   (cps-setrefk-exp
    (simple1 simple-exp?)
    (simple2 simple-exp?)
-   (body tfexp?)))
+   (body tfexp?))
+  ; (cps-throw-exp
+  ;  (simple1 simple-exp?)
+  ;  (simple2 simple-exp?))
+  )
 
 ; translate --------------------------------------------------------------------
 ;translate : String → cps-out-program
@@ -406,7 +427,7 @@
       (call-exp (rator rands)
                 (cps-of-call-exp rator rands k-exp))
       (print-exp (rator)
-                 (cps-of-exps (list rator)
+                 (cps-of-exps (list rator)  ;ratorがsimpleではない場合があるからcps-of-expsに渡す
                               (lambda (simples)
                                 (cps-printk-exp
                                  (car simples)
@@ -427,7 +448,17 @@
                                   (car simples)
                                   (cadr simples)
                                   (make-send-to-cont k-exp
-                                                     (cps-const-exp 23)))))))))
+                                                     (cps-const-exp 23))))))
+      ; (letcc-exp (var body)
+      ;            (cps-of-letcc-exp var body k-exp))
+      ; (throw-exp (exp1 exp2)
+      ;            (cps-of-exps (list exp1 exp2)
+      ;                         (lambda (simples)
+      ;                           (cps-throw-exp
+      ;                            (car simples)
+      ;                            (cadr simples)
+      ;                            k-exp))))
+      )))
 
 ; cps-of-simple-exp : InpExp → SimpleExp
 ; usage: assumes (inp-exp-simple? exp).
@@ -521,6 +552,17 @@
                    (make-send-to-cont
                     k-exp
                     (cps-sum-exp simples))))))
+
+; cps-of-letcc-exp : Var × InpExp × SimpleExp → TfExp
+(define cps-of-letcc-exp
+  (lambda (id body k-exp)
+    ; (cps-of-exps (list body)
+    ;              (lambda (simples)
+    ;                (cps-let-exp id
+    ;                             k-exp
+    ;                             (car simples))))
+    (cps-let-exp id k-exp (cps-of-exp body id))
+    ))
 
 ; make-send-to-cont : SimpleExp × SimpleExp → TfExp
 (define make-send-to-cont
@@ -637,7 +679,10 @@
                              (val (value-of-simple-exp simple2 env)))
                          (begin
                            (setref! ref val)
-                           (value-of/k body env cont)))))))
+                           (value-of/k body env cont))))
+      ; (cps-throw-exp (simple1 simple2)
+      ;                (value-of/k (cps-call-exp simple1 simple2) env cont))
+      )))
 
 ; apply-procedure : Proc × ExpVal → ExpVal
 (define apply-procedure/k
@@ -736,3 +781,7 @@
                               setrefk(loc1,22);
                               derefk(loc1, proc (val)
                                             -(val,1))))")
+
+(define letcc-test
+  "let x = 10 in
+    letcc k in -(x,1)")
