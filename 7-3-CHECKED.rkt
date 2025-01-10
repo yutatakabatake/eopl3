@@ -5,6 +5,7 @@
 ; letrecのprocedureの結果の型を指定する
 
 ; type environment ----------------------------------------------
+; Tenv= Var → Type
 (define-datatype type-environment type-environment?
   (empty-tenv)
   (extend-tenv
@@ -75,8 +76,7 @@
    (arg-type type?)
    (result-type type?)))
 
-
-; Tenv= Var → Type
+; type checker -----------------------------------------------------
 ; type-of-program : Program→ Type
 (define type-of-program
   (lambda (pgm)
