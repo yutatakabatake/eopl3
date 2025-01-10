@@ -247,7 +247,7 @@
      (symbol? x)
      (not (eqv? x 'lambda)))))
 
-;run : String → ExpVal
+;type-check : String → Type
 (define type-check
   (lambda (string)
     (type-of-program (scan&parse string))))
