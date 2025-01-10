@@ -510,3 +510,7 @@
                     try (inner lst)
                         catch (x) -1
     in ((index 5) list(2, 3))")
+
+(define return9
+  "let x = 10 in 
+  letcc k in -(x,1)")
