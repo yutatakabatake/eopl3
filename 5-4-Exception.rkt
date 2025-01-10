@@ -177,7 +177,7 @@
                   (apply-cont saved-cont
                               (bool-val (null? (expval->list val)))))
       (car-cont (cont)
-                (apply-cont cont (expval->car val)))
+                (apply-cont cont (car (expval->list val))))
       (cdr-cont (cont)
                 (apply-cont cont (list-val (cdr (expval->list val))))))))
 
