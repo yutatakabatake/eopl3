@@ -1,6 +1,6 @@
 #lang eopl
 
-; 複数の引数を取れる再帰関数を拡張
+; 相互再帰
 
 (define-datatype environment environment?
   (empty-env)
