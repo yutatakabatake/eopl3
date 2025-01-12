@@ -34,29 +34,21 @@
                                (car saved-vals)
                                (apply-env (extend-env-list (cdr saved-vars) (cdr saved-vals) saved-env)
                                           search-var))))
-      (extend-env-rec* (p-names b-varss p-bodies saved-env)
-                       (cond
-                         ((location search-var p-names)
-                          => (lambda (n)
-                               (proc-val (procedure (list-ref b-varss n) (list-ref p-bodies n) env))))
-                         (else
-                          (apply-env saved-env search-var)))))))
+      (extend-env-rec* (p-names b-vars p-bodies saved-env)
+                       (if (null? p-names)
+                           (apply-env saved-env search-var)
+                           (let ((res (has-proc? search-var p-names b-vars p-bodies)))
+                             (if (car res)
+                                 (proc-val (procedure (cadr res) (caddr res) env))
+                                 (apply-env saved-env search-var))))))))
 
-;; location : Sym * Listof(Sym) -> Maybe(Int)
-;; (location sym syms) returns the location of sym in syms or #f is
-;; sym is not in syms.  We can specify this as follows:
-;; if (memv sym syms)
-;;   then (list-ref syms (location sym syms)) = sym
-;;   else (location sym syms) = #f
-(define location
-  (lambda (sym syms)
-    (cond
-      ((null? syms) #f)
-      ((eqv? sym (car syms)) 0)
-      ((location sym (cdr syms))
-       => (lambda (n)
-            (+ n 1)))
-      (else #f))))
+(define has-proc?
+  (lambda (search-var p-names b-vars p-bodies)
+    (if (null? p-names)
+        (list #f)
+        (if (eqv? (car p-names) search-var)
+            (list #t (car b-vars) (car p-bodies))
+            (has-proc? search-var (cdr p-names) (cdr b-vars) (cdr p-bodies))))))
 
 ;init-env : () → Env
 ;usage: (init-env) = [i=⌈1⌉,v=⌈5⌉,x=⌈10⌉]
