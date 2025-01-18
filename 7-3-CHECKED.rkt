@@ -263,9 +263,10 @@
                 (type-to-external-form rator-type))))
 
 (define sigma
-  "letrec sigma (x) = if zero?(x) 
-                      then 0
-                      else -((sigma -(x,1)), -(0,x))
+  "letrec 
+    int sigma (x : int) = if zero?(x) 
+                          then 0
+                          else -((sigma -(x,1)), -(0,x))
     in (sigma 4)")
 
 (define test1
@@ -280,3 +281,12 @@
 
 (define test3
   "proc (f : (bool -> int)) proc (n : int) (f zero?(n))")
+
+(define test4
+  "zero?(0)")
+
+(define test5
+  "if zero?(0) then 1 else 2")
+
+(define test6
+  "if zero?(0) then 1 else proc (x : int) -(x,1)")
