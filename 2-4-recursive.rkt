@@ -14,6 +14,34 @@
    (rator lc-exp?)
    (rand lc-exp?)))
 
+(define scanner-spec
+  '((whitespace (whitespace) skip) ; Skip the whitespace
+    ; Any arbitrary string of characters following a "%" upto a newline are skipped.
+    (comment ("%" (arbno (not #\newline))) skip)
+    ; An identifier is a letter followed by an arbitrary number of contiguous digits,
+    ; letters, or specified punctuation characters.
+    (identifier
+     (letter (arbno (or letter digit "_" "-" "?")))
+     symbol)
+    ; A number is any digit followed by an arbitrary number of digits
+    ; or a "-" followed by a digit and an arbitrary number of digits.
+    (number (digit (arbno digit)) number)
+    (number ("-" digit (arbno digit)) number)))
+
+(define grammar
+  '((lc-exp
+     (identifier)
+     var-exp)
+    (lc-exp
+     ("lambda" "(" identifier ")" lc-exp)
+     lambda-exp)
+    (lc-exp
+     ("(" lc-exp lc-exp ")")
+     app-exp)))
+
+(define scan&parse
+  (sllgen:make-string-parser scanner-spec grammar))
+
 (define exp1 (var-exp 'x))
 (define exp2 (lambda-exp 'x (app-exp (var-exp 'x) (var-exp 'y))))
 (define exp3 (app-exp (var-exp 'x) (var-exp 'y)))
