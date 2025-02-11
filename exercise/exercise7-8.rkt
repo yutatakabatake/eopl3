@@ -97,25 +97,25 @@
   (proc-type
    (arg-type type?)
    (result-type type?))
-  (pairof
+  (pair-type
    (ty1 type?)
    (ty2 type?)))
 
-(define pairof->ty1
+(define pair-type->ty1
   (lambda (ty)
     (cases type ty
-      (pairof (ty1 ty2)
-              ty1)
+      (pair-type (ty1 ty2)
+                 ty1)
       (else
-       (report-type-extractor-error 'pairof ty)))))
+       (report-type-extractor-error 'pair-type ty)))))
 
-(define pairof->ty2
+(define pair-type->ty2
   (lambda (ty)
     (cases type ty
-      (pairof (ty1 ty2)
-              ty2)
+      (pair-type (ty1 ty2)
+                 ty2)
       (else
-       (report-type-extractor-error 'pairof ty)))))
+       (report-type-extractor-error 'pair-type ty)))))
 
 ; type checker -----------------------------------------------------
 ; type-of-program : Program→ Type
@@ -190,11 +190,11 @@
       (pair-exp (exp1 exp2)
                 (let ((ty1 (type-of exp1 tenv))
                       (ty2 (type-of exp2 tenv)))
-                  (pairof ty1 ty2)))
+                  (pair-type ty1 ty2)))
       (unpair-exp (var1 var2 exp1 body)
                   (let* ((pair-ty (type-of exp1 tenv))
-                         (ty1 (pairof->ty1 pair-ty))
-                         (ty2 (pairof->ty2 pair-ty)))
+                         (ty1 (pair-type->ty1 pair-ty))
+                         (ty2 (pair-type->ty2 pair-ty)))
                     (type-of body (extend-tenv var1 ty1
                                                (extend-tenv var2 ty2 tenv))))))))
 
@@ -227,10 +227,10 @@
                   (type-to-external-form arg-type)
                   '->
                   (type-to-external-form result-type)))
-      (pairof (ty1 ty2)
-              (list (type-to-external-form ty1)
-                    '*
-                    (type-to-external-form ty2))))))
+      (pair-type (ty1 ty2)
+                 (list (type-to-external-form ty1)
+                       '*
+                       (type-to-external-form ty2))))))
 
 (define scanner-spec
   '((whitespace (whitespace) skip) ; Skip the whitespace
@@ -311,7 +311,11 @@
 
     (type
      ("(" type "->" type ")")
-     proc-type)))
+     proc-type)
+
+    (type
+     ("pairof" "(" type "*" type ")")
+     pair-type)))
 
 
 (define identifier?
@@ -395,3 +399,6 @@
        b = zero?(200) in
         unpair x y = pair(a, b) in 
           if y then -(x,1) else x")
+
+(define test13
+  "let f = proc (x : pairof (int * bool)) unpair a b = x in a in f")
