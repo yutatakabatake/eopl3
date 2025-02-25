@@ -67,9 +67,6 @@
       (extend-env-with-module (m-name m-val saved-env)
                               (apply-env saved-env search-var)))))
 
-(define init-env
-  (empty-env))
-
 ; expressed value ----------------------------------------------------
 (define-datatype expval expval?
   (num-val
