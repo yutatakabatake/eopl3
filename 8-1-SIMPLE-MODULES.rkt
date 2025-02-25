@@ -1,4 +1,4 @@
-#lang eopl 
+#lang eopl
 ; simple moduleを持つ言語を実装
 ; interfaceで宣言した値だけをプログラムのボディで使える
 ; モジュールのinterfaceとbodyで値の型を揃える
@@ -68,7 +68,10 @@
    (bound-var identifier?)
    (b-var-type type?)
    (proc-body expression?)
-   (letrec-body expression?)))
+   (letrec-body expression?))
+  (qualified-var-exp
+   (m-name identifier?)
+   (var-name identifier?)))
 
 (define-datatype type type?
   (int-type)
@@ -94,17 +97,27 @@
 
 (define gramar
   '((program ((arbno module-defn) expression) a-program)
-    
-    (module-defn ("module" identifier "interface" iface "body" module-body) a-module-definition)
-    
-    (iface ("[" (arbno decl) "]") simple-iface)
-    
-    (decl (identifier ":" type) val-decl)
-    
-    (module-body ("[" (arbno defn) "]") defns-module-body)
-    
-    (defn (identifier "=" expression) val-defn)
-    
+
+    (module-defn
+     ("module" identifier "interface" iface "body" module-body)
+     a-module-definition)
+
+    (iface
+     ("[" (arbno decl) "]")
+     simple-iface)
+
+    (decl
+     (identifier ":" type)
+     val-decl)
+
+    (module-body
+     ("[" (arbno defn) "]")
+     defns-module-body)
+
+    (defn
+      (identifier "=" expression)
+      val-defn)
+
     (expression (number) const-exp)
     (expression (identifier) var-exp)
 
@@ -144,6 +157,10 @@
       type identifier "(" identifier ":" type ")" "=" expression
       "in" expression)
      letrec-exp)
+
+    (expression
+     ("from" identifier "take" identifier)
+     qualified-var-exp)
 
     (type
      ("int")
