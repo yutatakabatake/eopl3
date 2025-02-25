@@ -469,8 +469,7 @@
                     (else
                      (report-rator-not-a-proc-type
                       rator-type rator)))))
-      (letrec-exp (p-result-type p-name b-var b-var-type
-                                 p-body letrec-body)
+      (letrec-exp (p-result-type p-name b-var b-var-type p-body letrec-body)
                   (let ((tenv-for-letrec-body
                          (extend-tenv p-name
                                       (proc-type b-var-type p-result-type)
