@@ -1,6 +1,6 @@
 #lang eopl
 
-;letを任意の数の変数宣言をするように拡張
+;let*で任意の数の変数宣言をするように拡張
 
 ;Env = (empty-env) | (extend-env Var SchemeVal Env)
 ;Var = Sym
@@ -462,8 +462,9 @@
   (lambda (val)
     (eopl:error 'emptylist "Emptylist: ~s" val)))
 
+; --> 2
 (define test
   "let x = 30
-      in let x = -(x,1)
-             y = -(x,2)
+      in let* x = -(x,1)
+                y = -(x,2)
          in -(x,y)")
