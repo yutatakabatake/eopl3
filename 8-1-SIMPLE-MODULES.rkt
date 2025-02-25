@@ -34,6 +34,37 @@
                                   m-val
                                   (lookup-module-name-in-env m-name saved-env))))))
 
+; lookup-qualified-var-in-tenv : Sym × Sym × Tenv → Type
+(define lookup-qualified-var-in-tenv
+  (lambda (m-name var-name tenv)
+    (let ((iface (lookup-module-name-in-tenv tenv m-name)))
+      (cases interface iface
+        (simple-iface (decls)
+                      (lookup-variable-name-in-decls var-name decls))))))
+
+(define lookup-module-name-in-tenv
+  (lambda (tenv search-m-name)
+    (cases type-environment tenv
+      (empty-tenv ()
+                  (report-no-module-binding-found search-m-name))
+      (extend-tenv (m-name iface saved-tenv)
+                   (lookup-module-name-in-tenv saved-tenv search-m-name))
+      (extend-tenv-with-module (m-name iface saved-tenv)
+                               (if (eqv? m-name search-m-name)
+                                   iface
+                                   (lookup-module-name-in-tenv saved-tenv search-m-name))))))
+
+(define lookup-variable-name-in-decls
+  (lambda (var-name decls)
+    (if (null? decls)
+        (report-no-qualified-variable-found var-name)
+        (let* ((decl (car decls))
+               (var (decl->name decl))
+               (type (decl->type decl)))
+          (if (eqv? var var-name)
+              type
+              (lookup-variable-name-in-decls var-name (cdr decls)))))))
+
 ; environment --------------------------------------------------------
 (define-datatype environment environment?
   (empty-env)
@@ -66,6 +97,42 @@
                           (apply-env saved-env search-var)))
       (extend-env-with-module (m-name m-val saved-env)
                               (apply-env saved-env search-var)))))
+
+; type environment ---------------------------------------------------
+; Tenv = Var → Type
+(define-datatype type-environment type-environment?
+  (empty-tenv)
+  (extend-tenv
+   (var identifier?)
+   (ty type?)
+   (tenv type-environment?))
+  ; (extend-tenv-list
+  ;  (vars (list-of identifier?))
+  ;  (tys (list-of type?))
+  ;  (tenv type-environment?))
+  (extend-tenv-with-module
+   (name symbol?)
+   (interface interface?)
+   (saved-tenv type-environment?)))
+
+(define apply-tenv
+  (lambda (tenv search-var)
+    (cases type-environment tenv
+      (empty-tenv ()
+                  (eopl:error 'apply-tenv "Unbound variable ~s" search-var))
+      (extend-tenv (saved-var saved-type saved-tenv)
+                   (if (eqv? saved-var search-var)
+                       saved-type
+                       (apply-tenv saved-tenv search-var)))
+      ; (extend-tenv-list (vars types saved-tenv)
+      ;                   (if (null? vars)
+      ;                       (apply-tenv saved-tenv search-var)
+      ;                       (if (eqv? (car vars) search-var)
+      ;                           (car types)
+      ;                           (apply-tenv (extend-tenv-list (cdr vars) (cdr types) saved-tenv)
+      ;                                       search-var))))
+      (extend-tenv-with-module (name interface saved-tenv)
+                               (apply-tenv saved-tenv search-var)))))
 
 ; expressed value ----------------------------------------------------
 (define-datatype expval expval?
@@ -114,10 +181,10 @@
 (define-datatype module-definition module-defn?
   (a-module-definition
    (m-name identifier?)
-   (expected-iface iface?)
+   (expected-iface interface?)
    (m-body module-body?)))
 
-(define-datatype iface iface?
+(define-datatype interface interface?
   (simple-iface
    (decls (list-of decl?))))
 
@@ -125,6 +192,18 @@
   (val-decl
    (var identifier?)
    (ty type?)))
+
+(define decl->name
+  (lambda (decl1)
+    (cases decl decl1
+      (val-decl (var ty)
+                var))))
+
+(define decl->type
+  (lambda (decl1)
+    (cases decl decl1
+      (val-decl (var ty)
+                ty))))
 
 (define-datatype module-body module-body?
   (defns-module-body
@@ -268,6 +347,174 @@
                  (value-of body (extend-env var val saved-env))))))
 
 
+; checker ------------------------------------------------------------
+; module bodyがinterfaceでの宣言を満たすかのチェック
+
+; type-of-program : Program → Type
+(define type-of-program
+  (lambda (pgm)
+    (cases program pgm
+      (a-program (module-defns body)
+                 (type-of body
+                          (add-module-defns-to-tenv module-defns
+                                                    (empty-tenv)))))))
+
+; add-module-defns-to-tenv : Listof(ModuleDefn) × Tenv → Tenv
+(define add-module-defns-to-tenv
+  (lambda (defns tenv)
+    (if (null? defns)
+        tenv
+        (cases module-definition (car defns)
+          (a-module-definition (m-name expected-iface m-body)
+                               (let ((actual-iface (interface-of m-body tenv)))
+                                 (if (<:-iface actual-iface expected-iface tenv)
+                                     (let ((new-tenv
+                                            (extend-tenv-with-module
+                                             m-name
+                                             expected-iface
+                                             tenv)))
+                                       (add-module-defns-to-tenv
+                                        (cdr defns) new-tenv))
+                                     (report-module-doesnt-satisfy-iface
+                                      m-name expected-iface actual-iface))))))))
+
+; interface-of : ModuleBody × Tenv → Iface
+(define interface-of
+  (lambda (m-body tenv)
+    (cases module-body m-body
+      (defns-module-body (defns)
+        (simple-iface
+         (defns-to-decls defns tenv))))))
+
+; defns-to-decls : Listof(Defn) × Tenv → Listof(Decl)
+(define defns-to-decls
+  (lambda (defns tenv)
+    (if (null? defns)
+        '()
+        (cases definition (car defns)
+          (val-defn (var-name exp)
+                    (let ((ty (type-of exp tenv)))
+                      (cons
+                       (val-decl var-name ty)
+                       (defns-to-decls
+                         (cdr defns)
+                         (extend-tenv var-name ty tenv)))))))))
+
+; <:-iface : Iface × Iface × Tenv → Bool
+(define <:-iface
+  (lambda (iface1 iface2 tenv)
+    (cases interface iface1
+      (simple-iface (decls1)
+                    (cases interface iface2
+                      (simple-iface (decls2)
+                                    (<:-decls decls1 decls2 tenv)))))))
+
+; <:-decls : Listof(Decl) × Listof(Decl) × Tenv → Bool
+(define <:-decls
+  (lambda (decls1 decls2 tenv)
+    (cond
+      ((null? decls2) #t)
+      ((null? decls1) #f)
+      (else
+       (let ((name1 (decl->name (car decls1)))
+             (name2 (decl->name (car decls2))))
+         (if (eqv? name1 name2)
+             (and
+              (equal?
+               (decl->type (car decls1))
+               (decl->type (car decls2)))
+              (<:-decls (cdr decls1) (cdr decls2) tenv))
+             (<:-decls (cdr decls1) decls2 tenv)))))))
+
+; type-of : Exp × Tenv → Type
+(define type-of
+  (lambda (exp tenv)
+    (cases expression exp
+      (const-exp (num) (int-type))
+      (var-exp (var) (apply-tenv tenv var))
+      (diff-exp (exp1 exp2)
+                (let ((ty1 (type-of exp1 tenv))
+                      (ty2 (type-of exp2 tenv)))
+                  (check-equal-type! ty1 (int-type) exp1)
+                  (check-equal-type! ty2 (int-type) exp2)
+                  (int-type)))
+      (zero?-exp (exp1)
+                 (let ((ty1 (type-of exp1 tenv)))
+                   (check-equal-type! ty1 (int-type) exp1)
+                   (bool-type)))
+      (if-exp (exp1 exp2 exp3)
+              (let ((ty1 (type-of exp1 tenv))
+                    (ty2 (type-of exp2 tenv))
+                    (ty3 (type-of exp3 tenv)))
+                (check-equal-type! ty1 (bool-type) exp1)
+                (check-equal-type! ty2 ty3 exp)
+                ty2))
+      (let-exp (var exp1 body)
+               (let ((exp1-type (type-of exp1 tenv)))
+                 (type-of body
+                          (extend-tenv var exp1-type tenv))))
+      (proc-exp (var var-type body)
+                (let ((result-type
+                       (type-of body
+                                (extend-tenv var var-type tenv))))
+                  (proc-type var-type result-type)))
+      (call-exp (rator rand)
+                (let ((rator-type (type-of rator tenv))
+                      (rand-type (type-of rand tenv)))
+                  (cases type rator-type
+                    (proc-type (arg-type result-type)
+                               (begin
+                                 (check-equal-type! arg-type rand-type rand)
+                                 result-type))
+                    (else
+                     (report-rator-not-a-proc-type
+                      rator-type rator)))))
+      (letrec-exp (p-result-type p-name b-var b-var-type
+                                 p-body letrec-body)
+                  (let ((tenv-for-letrec-body
+                         (extend-tenv p-name
+                                      (proc-type b-var-type p-result-type)
+                                      tenv)))
+                    (let ((p-body-type
+                           (type-of p-body
+                                    (extend-tenv b-var b-var-type
+                                                 tenv-for-letrec-body))))
+                      (check-equal-type!
+                       p-body-type p-result-type p-body)
+                      (type-of letrec-body tenv-for-letrec-body))))
+      (qualified-var-exp (m-name var-name)
+                         (lookup-qualified-var-in-tenv m-name var-name tenv)))))
+
+
+; check-equal-type! : Type × Type × Exp→ Unspecified
+; 2つの型が等しいか比較する
+(define check-equal-type!
+  (lambda (ty1 ty2 exp)
+    (when (not (equal? ty1 ty2))
+      (report-unequal-types ty1 ty2 exp))))
+
+; report-unequal-types : Type × Type × Exp→ Unspecified
+(define report-unequal-types
+  (lambda (ty1 ty2 exp)
+    (eopl:error 'check-equal-type!
+                "Types didn’t match: ~s != ~a in~%~a"
+                (type-to-external-form ty1)
+                (type-to-external-form ty2)
+                exp)))
+
+; type-to-external-form : Type→ List
+; 型を読みやすいリストに変換する
+(define type-to-external-form
+  (lambda (ty)
+    (cases type ty
+      (int-type () 'int)
+      (bool-type () 'bool)
+      (proc-type (arg-type result-type)
+                 (list
+                  (type-to-external-form arg-type)
+                  '->
+                  (type-to-external-form result-type))))))
+
 (define scanner-spec
   '((whitespace (whitespace) skip) ; Skip the whitespace
     ; Any arbitrary string of characters following a "%" upto a newline are skipped.
@@ -367,6 +614,16 @@
   (lambda (string)
     (value-of-program (scan&parse string))))
 
+;type-check : String → Type
+(define type-check
+  (lambda (string)
+    (type-of-program (scan&parse string))))
+
+(define check-run
+  (lambda (string)
+    (display (type-to-external-form (type-check string)))
+    (display " : ")
+    (run string)))
 (define scan&parse
   (sllgen:make-string-parser scanner-spec grammar))
 
@@ -392,6 +649,23 @@
 (define report-no-module-binding-found
   (lambda (m-name)
     (eopl:error 'lookup-module-name-in-env "No module binding for ~s" m-name)))
+
+(define report-no-qualified-variable-found
+  (lambda (var-name)
+    (eopl:error 'lookup-variable-name-in-decls "No qualified variable found for ~s" var-name)))
+
+(define report-module-doesnt-satisfy-iface
+  (lambda (m-name expected-iface actual-iface)
+    (eopl:error 'add-module-defns-to-tenv
+                "Module ~s doesn't satisfy its interface. Expected: ~s, Actual: ~s" m-name expected-iface actual-iface)))
+
+(define report-rator-not-a-proc-type
+  (lambda (rator-type rator)
+    (eopl:error 'type-of-expression
+                "Rator not a proc type:~%~s~%had rator type ~s"
+                rator
+                (type-to-external-form rator-type))))
+
 
 (define test1
   "module m1
@@ -448,3 +722,14 @@
     body
     [v = -(from m1 take u,11)]
   -(from m1 take u, from m2 take v)")
+
+(define test6
+  "module m1
+   interface
+   [ a : int ]
+   body
+   [ a = letrec int sigma (x : int) = if zero?(x) 
+                      then 0
+                      else -((sigma -(x,1)), -(0,x))
+          in (sigma 10)]
+    from m1 take a")
