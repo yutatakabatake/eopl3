@@ -1,5 +1,5 @@
-# Scheme-learn
+# EOPL3
 
-## Scheme学習用リポジトリ
+## EOPL3学習用リポジトリ
 
 Essentials of Programming Languages 3e中にあるコードやExercise
