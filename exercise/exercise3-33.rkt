@@ -171,7 +171,7 @@
                     (value-of exp2 env)
                     (value-of exp3 env))))
       (let-exp (vars exps body)
-               (let ((vals (map (value-of exp env) exps)))
+               (let ((vals (map (lambda (exp) (value-of exp env)) exps)))
                  (value-of body
                            (extend-env-list vars vals env))))
       (proc-exp (vars body)
