@@ -1,6 +1,6 @@
 #lang eopl
 
-; 相互再帰
+; 相互再帰，複数引数関数の実装
 
 (define-datatype environment environment?
   (empty-env)
@@ -14,7 +14,7 @@
    (env environment?))
   (extend-env-rec*
    (p-names (list-of identifier?))
-   (b-vars (list-of identifier?))
+   (b-varss (list-of (list-of identifier?)))
    (p-bodies (list-of expression?))
    (env environment?)))
 
@@ -34,21 +34,22 @@
                                (car saved-vals)
                                (apply-env (extend-env-list (cdr saved-vars) (cdr saved-vals) saved-env)
                                           search-var))))
-      (extend-env-rec* (p-names b-vars p-bodies saved-env)
+      (extend-env-rec* (p-names b-varss p-bodies saved-env)
                        (if (null? p-names)
                            (apply-env saved-env search-var)
-                           (let ((res (has-proc? search-var p-names b-vars p-bodies)))
+                           (let ((res (has-proc? search-var p-names b-varss p-bodies)))
                              (if (car res)
                                  (proc-val (procedure (cadr res) (caddr res) env))
                                  (apply-env saved-env search-var))))))))
 
+; 複数のprocedureからsearch-varに束縛されたprocedureを探す
 (define has-proc?
-  (lambda (search-var p-names b-vars p-bodies)
+  (lambda (search-var p-names b-varss p-bodies)
     (if (null? p-names)
         (list #f)
         (if (eqv? (car p-names) search-var)
-            (list #t (car b-vars) (car p-bodies))
-            (has-proc? search-var (cdr p-names) (cdr b-vars) (cdr p-bodies))))))
+            (list #t (car b-varss) (car p-bodies))
+            (has-proc? search-var (cdr p-names) (cdr b-varss) (cdr p-bodies))))))
 
 ;init-env : () → Env
 ;usage: (init-env) = [i=⌈1⌉,v=⌈5⌉,x=⌈10⌉]
@@ -74,7 +75,7 @@
 
 (define-datatype proc proc?
   (procedure
-   (vars identifier?)
+   (vars (list-of identifier?))
    (body expression?)
    (saved-env environment?)))
 
@@ -126,14 +127,14 @@
    (exps (list-of expression?))
    (body expression?))
   (proc-exp
-   (vars identifier?)
+   (vars (list-of identifier?))
    (body expression?))
   (call-exp
    (rator expression?)
-   (rand expression?))
+   (rands (list-of expression?)))
   (letrec-exp
    (proc-names (list-of identifier?))
-   (bound-vars (list-of identifier?))
+   (bound-varss (list-of (list-of identifier?)))
    (proc-bodies (list-of expression?))
    (letrec-body expression?)))
 
@@ -177,28 +178,23 @@
                 (proc-val (procedure vars body env)))
       (call-exp (rator rands)
                 (let ((proc (expval->proc (value-of rator env)))
-                      (args (value-of rands env)))
+                      (args (map (lambda (rand) (value-of rand env)) rands)))
                   (apply-procedure proc args)))
       (letrec-exp (proc-names bound-varss proc-bodies letrec-body)
                   (value-of letrec-body (extend-env-rec* proc-names bound-varss proc-bodies env))))))
 
-; (define apply-procedure
-;   (lambda (proc1 arg)
-;     (cases proc proc1
-;       (procedure (vars body saved-env)
-;                  (if (null? vars)
-;                      (value-of body saved-env)
-;                      (let ((var (car vars))
-;                            (rest-var (cdr vars))
-;                            (val (car arg))
-;                            (rest-val (cdr arg)))
-;                        (apply-procedure (procedure rest-var body (extend-env var val saved-env))
-;                                         rest-val)))))))
 (define apply-procedure
-  (lambda (proc1 val)
+  (lambda (proc1 arg)
     (cases proc proc1
-      (procedure (var body saved-env)
-                 (value-of body (extend-env var val saved-env))))))
+      (procedure (vars body saved-env)
+                 (if (null? vars)
+                     (value-of body saved-env)
+                     (let ((var (car vars))
+                           (rest-var (cdr vars))
+                           (val (car arg))
+                           (rest-val (cdr arg)))
+                       (apply-procedure (procedure rest-var body (extend-env var val saved-env))
+                                        rest-val)))))))
 
 
 (define scanner-spec-letrec
@@ -243,19 +239,17 @@
 
     ; proc-exp : proc(a) b
     (expression
-     ("proc" "(" identifier ")" expression)
+     ("proc" "(" (arbno identifier) ")" expression)
      proc-exp)
 
     ; call-exp : (a b)
     (expression
-     ("(" expression expression ")")
+     ("(" expression (arbno expression) ")")
      call-exp)
 
     ; letrec-exp : letrec a (b) = c in d
     (expression
-     ("letrec"
-      (arbno identifier "(" identifier ")" "=" expression)
-      "in" expression)
+     ("letrec" (arbno identifier "(" (arbno identifier) ")" "=" expression) "in" expression)
      letrec-exp)))
 
 (define identifier?
@@ -300,3 +294,9 @@
     even(x) = if zero?(x) then 1 else (odd -(x,1))
     odd(x) = if zero?(x) then 0 else (even -(x,1))
   in (odd 13)")
+
+(define even-odd2
+  "letrec
+    even(x y) = if zero?(x) then 1 else (odd -(x,1) 0)
+    odd(x y) = if zero?(x) then 0 else (even -(x,1) 0)
+  in (odd 13 0)")
