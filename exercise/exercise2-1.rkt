@@ -1,6 +1,6 @@
 #lang eopl
 
-; Exercise 2.1
+; bigitsで階乗を計算する
 
 (define zero (lambda () '()))
 
@@ -30,7 +30,7 @@
       ((eqv? (car lst) 0)
        (cons (- N 1) (predecessor (cdr lst)))))))
 
-(define N 10)
+(define N 16)
 (define ten (successor (successor (successor (successor (successor (successor (successor (successor (successor (successor (zero))))))))))))
 (define one (successor (zero)))
 (define two (successor (successor (zero))))
