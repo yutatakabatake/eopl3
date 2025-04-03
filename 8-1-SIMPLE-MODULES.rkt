@@ -31,7 +31,7 @@
                       (lookup-module-name-in-env m-name saved-env))
       (extend-env-with-module (saved-m-name m-val saved-env)
                               (if (eqv? saved-m-name m-name)
-                                  m-val
+                                  m-val ;typed-module
                                   (lookup-module-name-in-env m-name saved-env))))))
 
 ; lookup-qualified-var-in-tenv : Sym × Sym × Tenv → Type
