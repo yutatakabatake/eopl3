@@ -379,6 +379,7 @@
                                       m-name expected-iface actual-iface))))))))
 
 ; interface-of : ModuleBody × Tenv → Iface
+; m-body中のdefinitionのexpの型を導出してinterfaceを作る
 (define interface-of
   (lambda (m-body tenv)
     (cases module-body m-body
@@ -387,6 +388,7 @@
          (defns-to-decls defns tenv))))))
 
 ; defns-to-decls : Listof(Defn) × Tenv → Listof(Decl)
+; expの型を導出する
 (define defns-to-decls
   (lambda (defns tenv)
     (if (null? defns)
@@ -413,8 +415,8 @@
 (define <:-decls
   (lambda (decls1 decls2 tenv)
     (cond
-      ((null? decls2) #t)
-      ((null? decls1) #f)
+      ((null? decls2) #t) ; インタフェースの宣言を比較し切った（bodyの方が宣言が多い）
+      ((null? decls1) #f) ; ボディの宣言が先に空になる（インタフェースの宣言より少ない）
       (else
        (let ((name1 (decl->name (car decls1)))
              (name2 (decl->name (car decls2))))
