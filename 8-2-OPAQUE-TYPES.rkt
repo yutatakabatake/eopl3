@@ -138,6 +138,8 @@
               (lookup-variable-name-in-decls var-name (cdr decls)))))))
 
 ; extend-tenv-with-decl : Decl × Tenv → Tenv
+; declを型環境に追加する
+; invariantsをチェックするための型環境を作る
 (define extend-tenv-with-decl
   (lambda (decl1 tenv)
     (cases decl decl1
@@ -150,6 +152,7 @@
       (opaque-type-decl (name)
                         (extend-tenv-with-type
                          name
+                         ;  declsの中の型環境ではqualified type
                          (qualified-type (fresh-module-name '%unknown) name)
                          tenv)))))
 
@@ -264,7 +267,7 @@
       (val-decl (var ty)
                 ty)
       (opaque-type-decl (t-name)
-                        (eopl:error 'decl->type "can't take type of abstract type declaration ~s" decl1))
+                        (eopl:error 'decl->type "can't take type of opaque type declaration ~s" decl1))
       (transparent-type-decl (t-name ty)
                              ty))))
 
@@ -497,7 +500,7 @@
               (<:-decls
                (cdr decls1) (cdr decls2)
                (extend-tenv-with-decl
-                (car decls1) tenv)))
+                (car decls1) tenv))) ; bodyの方のdeclを型環境に追加する　bodyの下の定義に影響するから let*スコープ
              (<:-decls
               (cdr decls1) decls2
               (extend-tenv-with-decl
@@ -519,7 +522,7 @@
       (equiv-type?
        (decl->type decl1)
        (decl->type decl2) tenv))
-     (and ; interfaceではopaqueで宣言してbodyではtransparentとして書く
+     (and ; interfaceではopaqueで宣言してbodyではtransparentのように書く
       (transparent-type-decl? decl1)
       (opaque-type-decl? decl2))
      (and
@@ -555,9 +558,9 @@
                                      (extend-tenv-with-type
                                       t-name expanded-type internal-tenv)))
                                 (cons
-                                 (transparent-type-decl t-name expanded-type)
+                                 (transparent-type-decl t-name expanded-type) ; qualified typeが型環境から探せるように
                                  (expand-decls
-                                  m-name (cdr decls) new-env)))))
+                                  m-name (cdr decls) new-env))))) ; let*スコープ
           (transparent-type-decl (t-name ty)
                                  (let ((expanded-type
                                         (expand-type ty internal-tenv)))
@@ -567,7 +570,7 @@
                                      (cons
                                       (transparent-type-decl t-name expanded-type)
                                       (expand-decls
-                                       m-name (cdr decls) new-env)))))
+                                       m-name (cdr decls) new-env))))) ; let*スコープ
           (val-decl (var-name ty)
                     (let ((expanded-type
                            (expand-type ty internal-tenv)))
@@ -592,11 +595,18 @@
                       (lookup-qualified-type-in-tenv m-name t-name tenv)))))
 
 (define lookup-type-name-in-tenv
-  (lambda (tenv search-sym)
-    (let ((maybe-answer
-           (type-name->maybe-binding-in-tenv tenv search-sym)))
-      (if maybe-answer maybe-answer
-          (raise-tenv-lookup-failure-error 'type search-sym tenv)))))
+  (lambda (tenv search-name)
+    (cases type-environment tenv
+      (empty-tenv ()
+                  (raise-tenv-lookup-failure-error 'type search-name tenv))
+      (extend-tenv (var ty saved-tenv)
+                   (lookup-type-name-in-tenv saved-tenv search-name))
+      (extend-tenv-with-module (name iface saved-tenv)
+                               (lookup-type-name-in-tenv saved-tenv search-name))
+      (extend-tenv-with-type (name type saved-tenv)
+                             (if (eqv? name search-name)
+                                 type
+                                 (lookup-type-name-in-tenv saved-tenv search-name))))))
 
 (define raise-tenv-lookup-failure-error
   (lambda (kind var tenv)
@@ -605,27 +615,6 @@
            tenv))
     (eopl:error 'lookup-variable-name-in-tenv)))
 
-;; type-name->maybe-binding-in-tenv : Tenv * Sym -> Maybe(Iface)
-(define type-name->maybe-binding-in-tenv
-  (lambda (tenv search-sym)
-    (let recur ((tenv tenv))
-      (cases type-environment tenv
-        (empty-tenv () #f)
-        (extend-tenv-with-type (name type saved-tenv)
-                               (if (eqv? name search-sym)
-                                   type
-                                   (recur saved-tenv)))
-        (else (recur (tenv->saved-tenv tenv)))))))
-
-(define tenv->saved-tenv
-  (lambda (tenv)
-    (cases type-environment tenv
-      (empty-tenv ()
-                  (eopl:error 'tenv->saved-tenv
-                              "tenv->saved-tenv called on empty tenv"))
-      (extend-tenv (name ty saved-tenv) saved-tenv)
-      (extend-tenv-with-module (name m-type saved-tenv) saved-tenv)
-      (extend-tenv-with-type (name ty saved-tenv) saved-tenv))))
 
 (define lookup-qualified-type-in-tenv
   (lambda (m-name t-name tenv)
