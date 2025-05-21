@@ -73,8 +73,8 @@
    (name symbol?)
    (interface interface?)
    (saved-tenv type-environment?))
-  (extend-tenv-with-type
-   (name type?)
+  (extend-tenv-with-type ; named type, qualified typeをexpanded typeとして保存
+   (name symbol?)
    (type type?)
    (saved-tenv type-environment?)))
 
@@ -100,7 +100,9 @@
                        saved-type
                        (apply-tenv saved-tenv search-var)))
       (extend-tenv-with-module (name interface saved-tenv)
-                               (apply-tenv saved-tenv search-var)))))
+                               (apply-tenv saved-tenv search-var))
+      (extend-tenv-with-type (name saved-type saved-env)
+                             (apply-tenv saved-env search-var)))))
 
 ; lookup-qualified-var-in-tenv : Sym × Sym × Tenv → Type
 (define lookup-qualified-var-in-tenv
@@ -120,7 +122,9 @@
       (extend-tenv-with-module (m-name iface saved-tenv)
                                (if (eqv? m-name search-m-name)
                                    iface
-                                   (lookup-module-name-in-tenv saved-tenv search-m-name))))))
+                                   (lookup-module-name-in-tenv saved-tenv search-m-name)))
+      (extend-tenv-with-type (t-name type saved-tenv)
+                             (lookup-module-name-in-tenv saved-tenv search-m-name)))))
 
 (define lookup-variable-name-in-decls
   (lambda (var-name decls)
@@ -133,21 +137,31 @@
               type
               (lookup-variable-name-in-decls var-name (cdr decls)))))))
 
-; expand-type : Type × Tenv → ExpandedType
-(define expand-type
-  (lambda (ty tenv)
-    (cases type ty
-      (int-type () (int-type))
-      (bool-type () (bool-type))
-      (proc-type (arg-type result-type)
-                 (proc-type
-                  (expand-type arg-type tenv)
-                  (expand-type result-type tenv)))
-      (named-type (name)
-                  (lookup-type-name-in-tenv tenv name))
-      (qualified-type (m-name t-name)
-                      (lookup-qualified-type-in-tenv m-name t-name tenv)))))
+; extend-tenv-with-decl : Decl × Tenv → Tenv
+(define extend-tenv-with-decl
+  (lambda (decl1 tenv)
+    (cases decl decl1
+      (val-decl (name ty) tenv)
+      (transparent-type-decl (name ty)
+                             (extend-tenv-with-type
+                              name
+                              (expand-type ty tenv)
+                              tenv))
+      (opaque-type-decl (name)
+                        (extend-tenv-with-type
+                         name
+                         (qualified-type (fresh-module-name '%unknown) name)
+                         tenv)))))
 
+(define fresh-module-name
+  (let ((sn 0))
+    (lambda (module-name)
+      (set! sn (+ sn 1))
+      (string->symbol
+       (string-append
+        (symbol->string module-name)
+        "%"             ; this can't appear in an input identifier
+        (number->string sn))))))
 ; expressed value ----------------------------------------------------
 (define-datatype expval expval?
   (num-val
@@ -212,17 +226,47 @@
    (t-name symbol?)
    (ty type?)))
 
+(define val-decl?
+  (lambda (decl1)
+    (cases decl decl1
+      (val-decl (var ty)
+                #t)
+      (else
+       #f))))
+
+(define transparent-type-decl?
+  (lambda (decl1)
+    (cases decl decl1
+      (transparent-type-decl (t-name ty)
+                             #t)
+      (else #f))))
+
+(define opaque-type-decl?
+  (lambda (decl1)
+    (cases decl decl1
+      (opaque-type-decl (t-name)
+                        #t)
+      (else #f))))
+
 (define decl->name
   (lambda (decl1)
     (cases decl decl1
       (val-decl (var ty)
-                var))))
+                var)
+      (opaque-type-decl (t-name)
+                        t-name)
+      (transparent-type-decl (t-name ty)
+                             t-name))))
 
 (define decl->type
   (lambda (decl1)
     (cases decl decl1
       (val-decl (var ty)
-                ty))))
+                ty)
+      (opaque-type-decl (t-name)
+                        (eopl:error 'decl->type "can't take type of abstract type declaration ~s" decl1))
+      (transparent-type-decl (t-name ty)
+                             ty))))
 
 (define-datatype module-body module-body?
   (defns-module-body
@@ -233,7 +277,7 @@
    (var-name identifier?)
    (exp1 expression?))
   (type-defn
-   (identifier symbol?)
+   (name symbol?)
    (ty type?)))
 
 (define-datatype expression expression?
@@ -383,12 +427,13 @@
         tenv
         (cases module-definition (car defns)
           (a-module-definition (m-name expected-iface m-body)
-                               (let ((actual-iface (interface-of m-body tenv)))
+                               (let ((actual-iface (interface-of m-body tenv))) ; インタフェースが持つ型はexpandされる
                                  (if (<:-iface actual-iface expected-iface tenv)
                                      (let ((new-tenv
                                             (extend-tenv-with-module
                                              m-name
-                                             expected-iface
+                                             (expand-iface
+                                              m-name expected-iface tenv) ; インタフェースが持つ型はexpandされる
                                              tenv)))
                                        (add-module-defns-to-tenv
                                         (cdr defns) new-tenv))
@@ -404,6 +449,8 @@
          (defns-to-decls defns tenv))))))
 
 ; defns-to-decls : Listof(Defn) × Tenv → Listof(Decl)
+; インタフェースの定義とボディの宣言の型を比較するためにdefnをdeclに変換する
+; 比較する時の型はexpandされていなければならない
 (define defns-to-decls
   (lambda (defns tenv)
     (if (null? defns)
@@ -411,11 +458,19 @@
         (cases definition (car defns)
           (val-defn (var-name exp)
                     (let ((ty (type-of exp tenv)))
-                      (cons
-                       (val-decl var-name ty)
-                       (defns-to-decls
-                         (cdr defns)
-                         (extend-tenv var-name ty tenv)))))))))
+                      (let ((new-env (extend-tenv var-name ty tenv))) ; tyはtype-ofでexpandされている保証がある
+                        (cons
+                         (val-decl var-name ty)
+                         (defns-to-decls (cdr defns) new-env)))))
+          (type-defn (name ty)
+                     (let ((new-env
+                            (extend-tenv-with-type
+                             name
+                             (expand-type ty tenv) ; 型環境に追加する時はexpandする
+                             tenv)))
+                       (cons
+                        (transparent-type-decl name ty) ; bodyでは全ての型はtransparentである
+                        (defns-to-decls (cdr defns) new-env))))))))
 
 ; <:-iface : Iface × Iface × Tenv → Bool
 (define <:-iface
@@ -437,11 +492,151 @@
              (name2 (decl->name (car decls2))))
          (if (eqv? name1 name2)
              (and
-              (equal?
-               (decl->type (car decls1))
-               (decl->type (car decls2)))
-              (<:-decls (cdr decls1) (cdr decls2) tenv))
-             (<:-decls (cdr decls1) decls2 tenv)))))))
+              (<:-decl
+               (car decls1) (car decls2) tenv)
+              (<:-decls
+               (cdr decls1) (cdr decls2)
+               (extend-tenv-with-decl
+                (car decls1) tenv)))
+             (<:-decls
+              (cdr decls1) decls2
+              (extend-tenv-with-decl
+               (car decls1) tenv))))))))
+
+; <:-decl : Decl × Decl × Tenv → Bool
+(define <:-decl
+  (lambda (decl1 decl2 tenv)
+    (or
+     (and
+      (val-decl? decl1)
+      (val-decl? decl2)
+      (equiv-type?
+       (decl->type decl1)
+       (decl->type decl2) tenv))
+     (and
+      (transparent-type-decl? decl1)
+      (transparent-type-decl? decl2)
+      (equiv-type?
+       (decl->type decl1)
+       (decl->type decl2) tenv))
+     (and ; interfaceではopaqueで宣言してbodyではtransparentとして書く
+      (transparent-type-decl? decl1)
+      (opaque-type-decl? decl2))
+     (and
+      (opaque-type-decl? decl1)
+      (opaque-type-decl decl2)))))
+
+; equiv-type? : Type × Type × Tenv → Bool
+(define equiv-type?
+  (lambda (ty1 ty2 tenv)
+    (equal?
+     (expand-type ty1 tenv)
+     (expand-type ty2 tenv))))
+
+; expand-iface : Sym × Iface × Tenv → Iface
+(define expand-iface
+  (lambda (m-name iface tenv)
+    (cases interface iface
+      (simple-iface (decls)
+                    (simple-iface
+                     (expand-decls m-name decls tenv))))))
+
+; expand-decls : Sym × Listof(Decl) × Tenv → Listof(Decl)
+; インタフェースで定義した型を全てexpandして型環境に追加する
+(define expand-decls
+  (lambda (m-name decls internal-tenv)
+    (if (null? decls)
+        '()
+        (cases decl (car decls)
+          (opaque-type-decl (t-name)
+                            (let ((expanded-type
+                                   (qualified-type m-name t-name)))
+                              (let ((new-env
+                                     (extend-tenv-with-type
+                                      t-name expanded-type internal-tenv)))
+                                (cons
+                                 (transparent-type-decl t-name expanded-type)
+                                 (expand-decls
+                                  m-name (cdr decls) new-env)))))
+          (transparent-type-decl (t-name ty)
+                                 (let ((expanded-type
+                                        (expand-type ty internal-tenv)))
+                                   (let ((new-env
+                                          (extend-tenv-with-type
+                                           t-name expanded-type internal-tenv)))
+                                     (cons
+                                      (transparent-type-decl t-name expanded-type)
+                                      (expand-decls
+                                       m-name (cdr decls) new-env)))))
+          (val-decl (var-name ty)
+                    (let ((expanded-type
+                           (expand-type ty internal-tenv)))
+                      (cons
+                       (val-decl var-name expanded-type)
+                       (expand-decls
+                        m-name (cdr decls) internal-tenv))))))))
+
+; expand-type : Type × Tenv → ExpandedType
+(define expand-type
+  (lambda (ty tenv)
+    (cases type ty
+      (int-type () (int-type))
+      (bool-type () (bool-type))
+      (proc-type (arg-type result-type)
+                 (proc-type
+                  (expand-type arg-type tenv)
+                  (expand-type result-type tenv)))
+      (named-type (name)
+                  (lookup-type-name-in-tenv tenv name))
+      (qualified-type (m-name t-name)
+                      (lookup-qualified-type-in-tenv m-name t-name tenv)))))
+
+(define lookup-type-name-in-tenv
+  (lambda (tenv search-sym)
+    (let ((maybe-answer
+           (type-name->maybe-binding-in-tenv tenv search-sym)))
+      (if maybe-answer maybe-answer
+          (raise-tenv-lookup-failure-error 'type search-sym tenv)))))
+
+(define raise-tenv-lookup-failure-error
+  (lambda (kind var tenv)
+    (eopl:pretty-print
+     (list 'tenv-lookup-failure: (list 'missing: kind var) 'in:
+           tenv))
+    (eopl:error 'lookup-variable-name-in-tenv)))
+
+;; type-name->maybe-binding-in-tenv : Tenv * Sym -> Maybe(Iface)
+(define type-name->maybe-binding-in-tenv
+  (lambda (tenv search-sym)
+    (let recur ((tenv tenv))
+      (cases type-environment tenv
+        (empty-tenv () #f)
+        (extend-tenv-with-type (name type saved-tenv)
+                               (if (eqv? name search-sym)
+                                   type
+                                   (recur saved-tenv)))
+        (else (recur (tenv->saved-tenv tenv)))))))
+
+(define tenv->saved-tenv
+  (lambda (tenv)
+    (cases type-environment tenv
+      (empty-tenv ()
+                  (eopl:error 'tenv->saved-tenv
+                              "tenv->saved-tenv called on empty tenv"))
+      (extend-tenv (name ty saved-tenv) saved-tenv)
+      (extend-tenv-with-module (name m-type saved-tenv) saved-tenv)
+      (extend-tenv-with-type (name ty saved-tenv) saved-tenv))))
+
+(define lookup-qualified-type-in-tenv
+  (lambda (m-name t-name tenv)
+    (let ((iface (lookup-module-name-in-tenv tenv m-name)))
+      (cases interface iface
+        (simple-iface (decls)
+                      ;; this is not right, because it doesn't distinguish
+                      ;; between type and variable declarations.  Exercise: fix
+                      ;; this so that it raises an error if t-name is declared
+                      ;; in a val-decl.
+                      (lookup-variable-name-in-decls t-name decls))))))
 
 ; type-of : Exp × Tenv → Type
 (define type-of
@@ -469,11 +664,11 @@
       (let-exp (var exp1 body)
                (let ((exp1-type (type-of exp1 tenv)))
                  (type-of body
-                          (extend-tenv var exp1-type tenv))))
+                          (extend-tenv var (expand-type exp1-type tenv) tenv))))
       (proc-exp (var var-type body)
                 (let ((result-type
                        (type-of body
-                                (extend-tenv var var-type tenv))))
+                                (extend-tenv var (expand-type var-type tenv) tenv))))
                   (proc-type var-type result-type)))
       (call-exp (rator rand)
                 (let ((rator-type (type-of rator tenv))
@@ -487,16 +682,16 @@
                      (report-rator-not-a-proc-type
                       rator-type rator)))))
       (letrec-exp (p-result-type p-name b-var b-var-type p-body letrec-body)
-                  (let ((tenv-for-letrec-body
+                  (let ((tenv-for-letrec-body ; letrec-bodyの型を決めるときの型環境
                          (extend-tenv p-name
-                                      (proc-type b-var-type p-result-type)
+                                      (expand-type (proc-type b-var-type p-result-type) tenv)
                                       tenv)))
                     (let ((p-body-type
                            (type-of p-body
-                                    (extend-tenv b-var b-var-type
+                                    (extend-tenv b-var (expand-type b-var-type tenv) ; p-bodyの型を決めるのにtenv-for-letrec-bodyは使えない
                                                  tenv-for-letrec-body))))
                       (check-equal-type!
-                       p-body-type p-result-type p-body)
+                       p-body-type p-result-type p-body) ; p-result-type はexpand-typeを使わないといけない　p-result-typeがqualified-typeだったら間違いが起こる
                       (type-of letrec-body tenv-for-letrec-body))))
       (qualified-var-exp (m-name var-name)
                          (lookup-qualified-var-in-tenv m-name var-name tenv)))))
@@ -529,7 +724,11 @@
                  (list
                   (type-to-external-form arg-type)
                   '->
-                  (type-to-external-form result-type))))))
+                  (type-to-external-form result-type)))
+      (named-type (name)
+                  name)
+      (qualified-type (m-name t-name)
+                      (list 'from m-name 'take t-name)))))
 
 (define scanner-spec
   '((whitespace (whitespace) skip) ; Skip the whitespace
@@ -655,11 +854,11 @@
 ;type-check : String → Type
 (define type-check
   (lambda (string)
-    (type-of-program (scan&parse string))))
+    (type-to-external-form (type-of-program (scan&parse string)))))
 
 (define check-run
   (lambda (string)
-    (display (type-to-external-form (type-check string)))
+    (display (type-check string))
     (display " : ")
     (run string)))
 (define scan&parse
@@ -705,62 +904,6 @@
                 (type-to-external-form rator-type))))
 
 
-(define test1
-  "module m1
-   interface
-   [a : int
-    b : int
-    c : int]
-   body
-   [a = 33
-   x = -(a,1) % = 32
-   b = -(a,x) % = 1
-   c = -(x,b)] % = 31
-  let a = 10 
-  in -(-(from m1 take a,
-         from m1 take b),
-       a)")
-
-(define test2
-  "module m1
-   interface
-    [u : bool]
-   body
-    [u = 33]
-  44")
-
-(define test3
-  "module m1
-    interface
-    [u : int
-     v : int]
-    body
-    [u = 33]
-  44")
-
-(define test4
-  "module m1
-    interface
-    [u : int
-     v : int]
-    body
-    [v = 33
-     u = 44]
-  from m1 take u")
-
-(define test5
-  "module m1
-    interface
-    [u : int]
-    body
-    [u = 44]
-  module m2
-    interface
-    [v : int]
-    body
-    [v = -(from m1 take u,11)]
-  -(from m1 take u, from m2 take v)")
-
 (define test6
   "module m1
    interface
@@ -771,3 +914,135 @@
                       else -((sigma -(x,1)), -(0,x))
           in (sigma 10)]
     from m1 take a")
+
+(define ex8.6
+  "module m1
+    interface
+    [transparent t = int
+     z : t
+     s : (t -> t)
+     is-z? : (t -> bool)]
+    body
+    [type t = int
+     z = 33
+     s = proc (x : t) -(x,-1)
+     is-z? = proc (x : t) zero?(-(x,z))]
+   proc (x : from m1 take t)
+     (from m1 take is-z? -(x,0))")
+
+(define ex8.7
+  "module m1
+    interface
+    [opaque t
+     z : t
+     s : (t -> t)
+     is-z? : (t -> bool)]
+    body
+    [type t = int
+     z = 33
+     s = proc (x : t) -(x,-1)
+     is-z? = proc (x : t) zero?(-(x,z))]
+     proc (x : from m1 take t)
+  (from m1 take is-z? x)")
+
+(define ex8.8
+  "module colors
+    interface
+    [opaque color
+     red : color
+     green : color
+     is-red? : (color -> bool)]
+    body
+    [type color = int
+     red = 0
+     green = 1
+     is-red? = proc (c : color) zero?(c)]
+  let x = from colors take red in x")
+
+(define ex8.9
+  "module ints1
+    interface
+    [opaque t
+     zero : t
+     succ : (t -> t)
+     pred : (t -> t)
+     is-zero : (t -> bool)]
+    body
+    [type t = int
+     zero = 0
+     succ = proc(x : t) -(x,-5)
+     pred = proc(x : t) -(x,5)
+     is-zero = proc (x : t) zero?(x)]
+  let z = from ints1 take zero
+    in let s = from ints1 take succ
+      in (s (s z))")
+
+(define ex8.11
+  "module ints1
+    interface
+    [opaque t
+     zero : t
+     succ : (t -> t)
+     pred : (t -> t)
+     is-zero : (t -> bool)]
+    body
+    [type t = int
+     zero = 0
+     succ = proc(x : t) -(x,-5)
+     pred = proc(x : t) -(x,5)
+     is-zero = proc (x : t) zero?(x)]
+  let z = from ints1 take zero
+    in let s = from ints1 take succ
+      in let p = from ints1 take pred
+        in let z? = from ints1 take is-zero
+          in letrec int to-int (x : from ints1 take t) =
+            if (z? x)
+            then 0
+            else -((to-int (p x)), -1)
+          in (to-int (s (s z)))")
+
+(define ex8.13
+  "module mybool
+    interface
+    [opaque t
+     true : t
+     false : t
+     and : (t -> (t -> t))
+     not : (t -> t)
+     to-bool : (t -> bool)]
+    body
+    [type t = int
+     true = 0
+     false = 13
+     and = proc (x : t)
+            proc (y : t)
+              if zero?(x) then y else false
+     not = proc (x : t)
+            if zero?(x) then false else true
+     to-bool = proc (x : t) zero?(x)]
+  let true = from mybool take true
+    in let false = from mybool take false
+      in let and = from mybool take and
+        in ((and true) false)")
+
+; ???
+(define test
+  "module m1
+    interface
+    [opaque t
+     transparent u = (t -> int)
+     z : t
+     f : (t -> (int -> int))]
+    body
+    [type t = int 
+     type u = (t -> t) 
+     z = 0
+     f = proc (x : t)
+        if zero?(x)
+        then proc (x : t)
+              -(x,-100)
+        else proc (x : t)
+              -(x,-200)]
+  let f = from m1 take f in
+    let z = from m1 take z in 
+      ((f z) 0)")
