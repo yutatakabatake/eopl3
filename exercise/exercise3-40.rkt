@@ -1,5 +1,6 @@
 #lang eopl
 ; lexical address translatorとinterpreterにletrecを拡張
+; インタプリタ未完成
 
 ; static environment -------------------------------------------------
 ; Senv = Listof(pair(Label, Sym))
