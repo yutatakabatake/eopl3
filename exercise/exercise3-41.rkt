@@ -1,5 +1,6 @@
 #lang eopl
 ; let, procedure, callを多引数に拡張
+; 本当はex2.11のribcage representation of environment
 
 ; static environment -------------------------------------------------
 ; Senv = Listof(Sym)
