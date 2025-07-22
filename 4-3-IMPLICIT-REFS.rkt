@@ -6,7 +6,7 @@
   (empty-env)
   (extend-env
    (var identifier?)
-   (val reference?)
+   (val reference?) ;denoted value = reference
    (env environment?))
   (extend-env-rec
    (p-names (list-of identifier?))
