@@ -248,8 +248,7 @@
       (assing-stmt (var exp1)
                    (begin
                      (setref! (apply-env env var)
-                              (value-of exp1 env))
-                     (get-store)))
+                              (value-of exp1 env))))
       (print-stmt (exp1)
                   (display (value-of exp1 env))
                   (newline))
