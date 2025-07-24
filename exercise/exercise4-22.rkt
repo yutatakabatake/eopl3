@@ -185,7 +185,7 @@
   (cat-stmt
    (stmts (list-of statement?)))
   (if-stmt
-   (test (expression?))
+   (test expression?)
    (then-stmt statement?)
    (else-stmt statement?))
   (while-stmt
@@ -514,3 +514,6 @@
 (define pgm4
   "var f,x; {f = proc(x,y) *(x,y); x = 3;
             print (f 4 x)}")
+
+(define pgm5
+  "if zero?(0) print 100  print 200")
