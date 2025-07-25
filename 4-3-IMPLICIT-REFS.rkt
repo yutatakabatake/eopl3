@@ -106,7 +106,7 @@
     (cases proc proc1
       (procedure (var body saved-env)
                  (value-of body
-                           (extend-env var (newref val) saved-env))))))
+                           (extend-env var (newref val) saved-env)))))) ; newrefで値をコピー
 
 
 ; empty-store : () → Sto

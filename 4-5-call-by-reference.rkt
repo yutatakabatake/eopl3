@@ -106,7 +106,7 @@
     (cases proc proc1
       (procedure (var body saved-env)
                  (value-of body
-                           (extend-env var ref saved-env))))))
+                           (extend-env var ref saved-env)))))) ;参照をそのまま受け取る
 
 
 ; empty-store : () → Sto
