@@ -1,6 +1,6 @@
 #lang eopl
-
 ; call-by-reference 参照渡し
+; 複数引数関数に拡張
 
 (define-datatype environment environment?
   (empty-env)
@@ -74,7 +74,7 @@
 
 (define-datatype proc proc?
   (procedure
-   (var identifier?)
+   (vars (list-of identifier?))
    (body expression?)
    (saved-env environment?)))
 
@@ -102,12 +102,17 @@
 
 ; apply-procedure : Proc × Ref → ExpVal
 (define apply-procedure
-  (lambda (proc1 ref)
+  (lambda (proc1 refs)
     (cases proc proc1
-      (procedure (var body saved-env)
+      (procedure (vars body saved-env)
                  (value-of body
-                           (extend-env var ref saved-env)))))) ;参照をそのまま受け取る
+                           (extend-env-list vars refs saved-env)))))) ;参照をそのまま受け取る
 
+(define extend-env-list
+  (lambda (vars refs env)
+    (if (null? (cdr vars))
+        (extend-env (car vars) (car refs) env)
+        (extend-env-list (cdr vars) (cdr refs) (extend-env (car vars) (car refs) env)))))
 
 ; empty-store : () → Sto
 (define empty-store
@@ -191,11 +196,11 @@
    (exp1 expression?)
    (body expression?))
   (proc-exp
-   (var identifier?)
+   (vars (list-of identifier?))
    (body expression?))
   (call-exp
    (rator expression?)
-   (rand expression?))
+   (rands (list-of expression?)))
   (letrec-exp
    (proc-names (list-of identifier?))
    (bound-vars (list-of identifier?))
@@ -247,12 +252,12 @@
                (let ((val1 (value-of exp1 env)))
                  (value-of body
                            (extend-env var (newref val1) env))))
-      (proc-exp (var body)
-                (proc-val (procedure var body env)))
-      (call-exp (rator rand)
+      (proc-exp (vars body)
+                (proc-val (procedure vars body env)))
+      (call-exp (rator rands)
                 (let ((proc (expval->proc (value-of rator env)))
-                      (arg (value-of-operand rand env)))
-                  (apply-procedure proc arg)))
+                      (args (map (lambda (rand) (value-of-operand rand env)) rands)))
+                  (apply-procedure proc args)))
       (letrec-exp (proc-names bound-vars proc-bodies letrec-body)
                   (value-of letrec-body (extend-env-rec proc-names bound-vars proc-bodies env)))
       (begin-exp (exp1 exps)
@@ -325,12 +330,12 @@
 
     ; proc-exp : proc(a) b
     (expression
-     ("proc" "(" identifier ")" expression)
+     ("proc" "(" (separated-list identifier ",") ")" expression)
      proc-exp)
 
     ; call-exp : (a b)
     (expression
-     ("(" expression expression ")")
+     ("(" expression (arbno expression) ")")
      call-exp)
 
     ; letrec-exp : letrec(a) = b in c
@@ -422,10 +427,9 @@
 
 (define mult-fun
   "let b = 3
-    in let p = proc (x) 
-                proc(y)
+    in let p = proc (x,y) 
                   begin
                    set x = 4;
                    y
                   end
-        in ((p b) b)")
+        in (p b b)")
