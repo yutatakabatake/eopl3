@@ -527,7 +527,7 @@
       (opaque-type-decl? decl2))
      (and
       (opaque-type-decl? decl1)
-      (opaque-type-decl decl2)))))
+      (opaque-type-decl? decl2)))))
 
 ; equiv-type? : Type × Type × Tenv → Bool
 (define equiv-type?
