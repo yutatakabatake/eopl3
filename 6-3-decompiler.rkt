@@ -436,3 +436,6 @@
 
 (define ex5
   "(h (f x) -(44, y) (g y))")
+
+(define ex6
+  "(proc (x) -(100,x) 3)")
