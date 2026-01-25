@@ -188,7 +188,7 @@
                 (let ((free-vars (find-free body '())))
                   (nameless-proc-exp
                    (translation-of body
-                                   (make-proc-env free-vars (empty-senv))))))
+                                   (extend-senv var (make-proc-env free-vars (empty-senv)))))))
       (call-exp (rator rand)
                 (call-exp
                  (translation-of rator senv)
@@ -246,7 +246,9 @@
 ; value-of : Nameless-exp × Nameless-env → ExpVal
 (define value-of
   (lambda (exp nameless-env)
+    (display "exp : ")
     (display exp) (newline)
+    (display "nameless-env : ")
     (display nameless-env) (newline)
     (display "---------------") (newline)
     (cases expression exp
@@ -287,6 +289,11 @@
 
 (define trim-env
   (lambda (exp nameless-env)
+    (display "trim-env -----------") (newline)
+    (display "exp : ")
+    (display exp) (newline)
+    (display "nameless-env")
+    (display nameless-env) (newline)
     (cases expression exp
       (const-exp (_num) nameless-env)
       (diff-exp (exp1 exp2)
