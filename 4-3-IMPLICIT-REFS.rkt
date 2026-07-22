@@ -106,7 +106,7 @@
     (cases proc proc1
       (procedure (var body saved-env)
                  (value-of body
-                           (extend-env var (newref val) saved-env)))))) ; newrefで値をコピー
+                           (extend-env var (newref val) saved-env)))))) ; newrefで値をコピー、つまり、新しいメモリ割り当てとその参照を作成、イミュータブル
 
 
 ; empty-store : () → Sto
